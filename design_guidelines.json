@@ -1,0 +1,184 @@
+{
+  "app_name": "GymCode",
+  "personality": "5 Brutalist Mobile",
+  "personality_one_liner": "A high-contrast, mechanical, and typography-driven fitness log designed for maximum readability and zero friction during workouts.",
+  "color": {
+    "surface": "#FFFFFF",
+    "onSurface": "#0A0A0A",
+    "surfaceSecondary": "#F4F4F4",
+    "onSurfaceSecondary": "#0A0A0A",
+    "surfaceTertiary": "#EAEAEA",
+    "onSurfaceTertiary": "#0A0A0A",
+    "surfaceInverse": "#0A0A0A",
+    "onSurfaceInverse": "#FFFFFF",
+    "brand": "#E52020",
+    "brandPrimary": "#E52020",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#B31616",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#FFE5E5",
+    "onBrandTertiary": "#E52020",
+    "success": "#00E676",
+    "onSuccess": "#000000",
+    "warning": "#FFEA00",
+    "onWarning": "#000000",
+    "error": "#FF3333",
+    "onError": "#FFFFFF",
+    "info": "#333333",
+    "onInfo": "#FFFFFF",
+    "border": "#E5E5E5",
+    "borderStrong": "#0A0A0A",
+    "divider": "#E5E5E5",
+    "muted": "#737373",
+    "onBrand": "#FFFFFF",
+    "dark_surface": "#0A0A0A",
+    "dark_onSurface": "#FAFAFA",
+    "dark_surfaceSecondary": "#141414",
+    "dark_onSurfaceSecondary": "#FAFAFA",
+    "dark_surfaceTertiary": "#1F1F1F",
+    "dark_onSurfaceTertiary": "#FAFAFA",
+    "dark_surfaceInverse": "#FAFAFA",
+    "dark_onSurfaceInverse": "#0A0A0A",
+    "dark_brand": "#FF3333",
+    "dark_brandPrimary": "#FF3333",
+    "dark_onBrandPrimary": "#050505",
+    "dark_brandSecondary": "#E52020",
+    "dark_onBrandSecondary": "#050505",
+    "dark_brandTertiary": "#330A0A",
+    "dark_onBrandTertiary": "#FF3333",
+    "dark_border": "#333333",
+    "dark_borderStrong": "#FAFAFA",
+    "dark_divider": "#222222",
+    "dark_muted": "#888888"
+  },
+  "typography": {
+    "displayFontFamily": "SpaceGrotesk_500Medium",
+    "textFontFamily": "JetBrainsMono_400Regular",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24,
+      "3xl": 48
+    }
+  },
+  "spacing": {
+    "rule": "Rigid grids, edge-to-edge sections, sharp containers, and hard alignment. Let typography become the layout structure.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 0,
+    "md": 0,
+    "lg": 0,
+    "pill": 0
+  },
+  "shadow_tier": "0",
+  "navigation": "stack_only",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": "false",
+    "do's": [],
+    "dont's": [
+      "No blur or glassmorphism. This is a Brutalist app that relies on hard colors, thick 2pt borders, and high contrast."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "AccessCode (Entry)",
+      "purpose": "Minimalist gateway where a client enters a 6-digit code or toggles to Host Login.",
+      "states": {
+        "loading": "Centered text 'VERIFYING...'",
+        "empty": "N/A",
+        "error": "Hard red border on input with 'INVALID CODE' in mono font below."
+      },
+      "layout": "Full-screen stark layout. A massive Space Grotesk headline 'INSERISCI CODICE', edge-to-edge text input for the 6-digit code, and a bottom-anchored solid brand CTA 'ENTRA'."
+    },
+    {
+      "name": "HostDashboard",
+      "purpose": "Command center for the host to create, edit, and assign workout cards (schede).",
+      "states": {
+        "loading": "Skeleton grids mapping to the list rows.",
+        "empty": "Signal Red wireframe icon + 'Nessuna scheda creata.' + primary CTA 'CREA SCHEDA'.",
+        "error": "Error message in mono text + Retry CTA."
+      },
+      "layout": "Rigid stacked modules. Top header with total clients. A list of active 'Schede' in high-contrast edge-to-edge rows with thick dividers (1.5pt borderStrong). Sticky FAB or bottom action to add a new scheda."
+    },
+    {
+      "name": "ClientDashboard (Scheda)",
+      "purpose": "Shows the specific assigned workout split (1-5 days), weekly check-in stats, and overall progress.",
+      "states": {
+        "loading": "Mono skeleton text lines.",
+        "empty": "N/A - requires a valid scheda to access.",
+        "error": "Error text + Retry."
+      },
+      "layout": "Poster-like grid. Massive number showing current week progress (e.g., 'WEEK 3'). A horizontal sequence of thick blocks representing Days 1-5. Pressing a block expands the day's routine. Large CTA 'INIZIA SESSIONE' fixed at the bottom."
+    },
+    {
+      "name": "ActiveWorkoutSession",
+      "purpose": "The live tracking mode with rest timers, sets, reps, and exercise notes.",
+      "states": {
+        "loading": "Spinner",
+        "empty": "N/A",
+        "error": "Error text."
+      },
+      "layout": "Utility-driven. Expandable exercise rows that toggle set history. Huge Mono numerals for current set weight/reps. When resting, a full-screen rest timer (countdown numeral) with a Signal Red depleting bar takes over. Plate-weight stepper for quick weight edits."
+    },
+    {
+      "name": "Settings",
+      "purpose": "Toggle for Light/Dark mode and default language/preferences.",
+      "states": {
+        "loading": "N/A",
+        "empty": "N/A",
+        "error": "N/A"
+      },
+      "layout": "List of stark toggles with explicit ON/OFF labels in monospace font. A visible edge-to-edge switch for 'TEMA SCURO / CHIARO'."
+    }
+  ],
+  "images": {
+    "hero_gym": {
+      "url": "https://images.unsplash.com/photo-1761971976282-b2bb051a5474?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1NzZ8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBtaW5pbWFsJTIwZ3ltJTIwaW50ZXJpb3J8ZW58MHx8fHwxNzg5NjU0NDQ2fDA&ixlib=rb-4.1.0&q=85",
+      "dark": "https://images.pexels.com/photos/7690454/pexels-photo-7690454.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "alt": "Modern minimal gym interior and dark dramatically lit dumbbell"
+    },
+    "exercise_placeholder": {
+      "url": "https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTF8MHwxfHNlYXJjaHwxfHxkdW1iYmVsbHMlMjBmaXRuZXNzJTIwd29ya291dHxlbnwwfHx8fDE3ODk2NTQ0NDZ8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Person holding dumbbell for fitness workout placeholder"
+    }
+  },
+  "haptics": {
+    "primary_cta": "impactMedium",
+    "tab_switch": "selection",
+    "increment_weight": "impactLight",
+    "timer_start": "impactHeavy",
+    "workout_complete": "notificationSuccess"
+  },
+  "instructions_to_main_agent": [
+    "Strictly adhere to the '5 Brutalist Mobile' personality. Use sharp corners (0px radius) everywhere, edge-to-edge layouts, and structural 2pt borders instead of shadows.",
+    "Implement a robust theme context that consumes the `dark_*` tokens provided when the user toggles dark mode.",
+    "Banned hues: Do NOT use ANY shades of blue, indigo, purple, or default React Native/Material primary colors. The color scheme is strictly White/Grey/Black with 'Signal Red' as the single accent color.",
+    "Ensure 'Space Grotesk' is used for section headers/display text (Max weight 500), and 'JetBrains Mono' is heavily utilized for all data numbers, sets, reps, timers, and input fields to give it that raw, mechanical gym feel.",
+    "For the Active Workout Session screen, build a prominent 'Rest Timer' that occupies large screen real estate with giant monospace typography when activated.",
+    "In Dark Mode, ensure the background is #0A0A0A (not pure #000000 to prevent OLED smearing/eye fatigue) with high-contrast white text.",
+    "All primary CTA buttons must be sticky at the bottom of the screen (above safe area) even when the main content scrolls.",
+    "Because there is no traditional auth flow, the Landing page must function as a code-entry gatekeeper. Provide a small subtle button/text for the Host to bypass or 'Login as Host'."
+  ]
+}

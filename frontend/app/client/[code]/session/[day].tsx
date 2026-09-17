@@ -1,0 +1,240 @@
+import { useEffect, useRef, useState } from "react";
+import { View, Text, ScrollView, Pressable, ActivityIndicator, Modal, StyleSheet } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import LucideIcon from "@react-native-vector-icons/lucide";
+
+import { makeStyles, useTheme } from "@/src/theme";
+import { Header } from "@/src/components/header";
+import { Button } from "@/src/components/ui";
+import { api, type Scheda } from "@/src/api";
+
+const useStyles = makeStyles((c) => ({
+  root: { flex: 1, backgroundColor: c.surface },
+  content: { paddingHorizontal: 20, paddingBottom: 24 },
+  card: {
+    borderWidth: 2, borderColor: c.borderStrong, marginTop: 12, backgroundColor: c.surface,
+  },
+  cardHeader: {
+    padding: 14, borderBottomWidth: 2, borderBottomColor: c.borderStrong,
+    flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: c.surfaceSecondary,
+  },
+  exNum: {
+    width: 32, height: 32, backgroundColor: c.brandPrimary,
+    alignItems: "center", justifyContent: "center",
+  },
+  exNumText: { color: c.onBrandPrimary, fontWeight: "800", fontSize: 14 },
+  exName: { flex: 1, color: c.onSurface, fontWeight: "800", fontSize: 16, letterSpacing: 0.5, textTransform: "uppercase" },
+  metaGrid: { flexDirection: "row" },
+  metaCell: { flex: 1, padding: 12 },
+  metaDiv: { borderRightWidth: 1, borderRightColor: c.divider },
+  metaLabel: { color: c.muted, fontSize: 10, letterSpacing: 2, textTransform: "uppercase" },
+  metaValue: { color: c.onSurface, fontSize: 22, fontWeight: "800", marginTop: 4, letterSpacing: -0.5 },
+  notesRow: { padding: 12, borderTopWidth: 1, borderTopColor: c.divider },
+  notesText: { color: c.muted, fontSize: 12, letterSpacing: 0.5, fontStyle: "italic" },
+  setsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: c.divider },
+  setChip: {
+    width: 44, height: 44, borderWidth: 2, borderColor: c.borderStrong,
+    alignItems: "center", justifyContent: "center",
+  },
+  setChipDone: { backgroundColor: c.brandPrimary, borderColor: c.brandPrimary },
+  setChipText: { color: c.onSurface, fontWeight: "800", fontSize: 14 },
+  setChipTextDone: { color: c.onBrandPrimary, fontWeight: "800", fontSize: 14 },
+  timerRestBtn: {
+    marginTop: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    borderWidth: 2, borderColor: c.brandPrimary, paddingVertical: 10,
+  },
+  timerRestBtnText: {
+    color: c.brandPrimary, fontWeight: "800", letterSpacing: 2, textTransform: "uppercase", fontSize: 12,
+  },
+  // timer modal
+  timerBackdrop: { flex: 1, backgroundColor: c.surface, alignItems: "center", justifyContent: "center" },
+  timerLabel: { color: c.muted, fontSize: 12, letterSpacing: 4, textTransform: "uppercase" },
+  timerBig: { color: c.brandPrimary, fontSize: 140, fontWeight: "800", letterSpacing: -6, lineHeight: 140 },
+  timerBar: { height: 8, backgroundColor: c.surfaceTertiary, alignSelf: "stretch", marginHorizontal: 32, marginTop: 24 },
+  timerBarFill: { height: 8, backgroundColor: c.brandPrimary },
+  timerActions: { flexDirection: "row", gap: 12, marginTop: 40, paddingHorizontal: 32 },
+  timerBtn: { flex: 1 },
+  footer: { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 2, borderTopColor: c.borderStrong, backgroundColor: c.surface, gap: 8 },
+}));
+
+type SetStatus = Record<string, number>; // exerciseId -> completed count
+
+export default function ActiveSession() {
+  const styles = useStyles();
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { code, day } = useLocalSearchParams<{ code: string; day: string }>();
+
+  const [scheda, setScheda] = useState<Scheda | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [done, setDone] = useState<SetStatus>({});
+  const [checkingIn, setCheckingIn] = useState(false);
+
+  // Rest timer
+  const [restOpen, setRestOpen] = useState(false);
+  const [restTotal, setRestTotal] = useState(60);
+  const [restLeft, setRestLeft] = useState(60);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await api.get<Scheda>(`/schede/${code}`);
+        setScheda(r.data);
+      } finally { setLoading(false); }
+    })();
+  }, [code]);
+
+  useEffect(() => () => { if (tickRef.current) clearInterval(tickRef.current); }, []);
+
+  const session = scheda?.sessions[parseInt(day || "0", 10)];
+
+  const startRest = (seconds: number) => {
+    if (tickRef.current) clearInterval(tickRef.current);
+    setRestTotal(seconds); setRestLeft(seconds); setRestOpen(true);
+    tickRef.current = setInterval(() => {
+      setRestLeft((n) => {
+        if (n <= 1) {
+          if (tickRef.current) clearInterval(tickRef.current);
+          setRestOpen(false);
+          return 0;
+        }
+        return n - 1;
+      });
+    }, 1000);
+  };
+
+  const cancelRest = () => {
+    if (tickRef.current) clearInterval(tickRef.current);
+    setRestOpen(false);
+  };
+
+  const toggleSet = (exId: string, maxSets: number, restSecs: number) => {
+    const cur = done[exId] ?? 0;
+    const next = cur >= maxSets ? 0 : cur + 1;
+    setDone((s) => ({ ...s, [exId]: next }));
+    if (next > 0 && next < maxSets && restSecs > 0) startRest(restSecs);
+  };
+
+  const finishSession = async () => {
+    setCheckingIn(true);
+    try {
+      await api.post("/checkins", { code, session_id: session?.id, session_name: session?.name });
+      router.back();
+    } finally { setCheckingIn(false); }
+  };
+
+  if (loading || !scheda || !session) {
+    return (
+      <View style={styles.root}>
+        <Header title="Sessione" back />
+        <ActivityIndicator style={{ marginTop: 48 }} color={colors.brandPrimary} />
+      </View>
+    );
+  }
+
+  const totalExercises = session.exercises.length;
+  const completed = session.exercises.filter((e) => (done[e.id] ?? 0) >= e.sets).length;
+
+  const mm = String(Math.floor(restLeft / 60)).padStart(2, "0");
+  const ss = String(restLeft % 60).padStart(2, "0");
+
+  return (
+    <View style={styles.root}>
+      <Header title={session.name} subtitle={`${completed}/${totalExercises} completati`} back />
+      <ScrollView contentContainerStyle={styles.content}>
+        {session.exercises.map((ex, idx) => {
+          const doneSets = done[ex.id] ?? 0;
+          return (
+            <View key={ex.id} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={styles.exNum}><Text style={styles.exNumText}>{idx + 1}</Text></View>
+                <Text style={styles.exName} numberOfLines={1}>{ex.name || `Esercizio ${idx + 1}`}</Text>
+              </View>
+              <View style={styles.metaGrid}>
+                <View style={[styles.metaCell, styles.metaDiv]}>
+                  <Text style={styles.metaLabel}>Serie</Text>
+                  <Text style={styles.metaValue}>{ex.sets}</Text>
+                </View>
+                <View style={[styles.metaCell, styles.metaDiv]}>
+                  <Text style={styles.metaLabel}>Reps</Text>
+                  <Text style={styles.metaValue}>{ex.reps || "—"}</Text>
+                </View>
+                <View style={[styles.metaCell, styles.metaDiv]}>
+                  <Text style={styles.metaLabel}>Peso</Text>
+                  <Text style={styles.metaValue}>{ex.weight || "—"}</Text>
+                </View>
+                <View style={styles.metaCell}>
+                  <Text style={styles.metaLabel}>Rec</Text>
+                  <Text style={styles.metaValue}>{ex.rest_seconds}s</Text>
+                </View>
+              </View>
+              {ex.notes ? (
+                <View style={styles.notesRow}>
+                  <Text style={styles.notesText}>{ex.notes}</Text>
+                </View>
+              ) : null}
+              <View style={styles.setsRow}>
+                {Array.from({ length: ex.sets }).map((_, s) => {
+                  const isDone = s < doneSets;
+                  return (
+                    <Pressable
+                      key={s}
+                      testID={`set-chip-${ex.id}-${s}`}
+                      onPress={() => toggleSet(ex.id, ex.sets, ex.rest_seconds)}
+                      style={[styles.setChip, isDone ? styles.setChipDone : null]}
+                    >
+                      <Text style={isDone ? styles.setChipTextDone : styles.setChipText}>{s + 1}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {ex.rest_seconds > 0 ? (
+                <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
+                  <Pressable
+                    testID={`start-rest-${ex.id}`}
+                    onPress={() => startRest(ex.rest_seconds)}
+                    style={styles.timerRestBtn}
+                  >
+                    <LucideIcon name="timer" size={16} color={colors.brandPrimary} />
+                    <Text style={styles.timerRestBtnText}>Recupero {ex.rest_seconds}s</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+      </ScrollView>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+        <Button testID="finish-session-button" label="Termina & Registra" onPress={finishSession} loading={checkingIn} />
+      </View>
+
+      <Modal visible={restOpen} animationType="fade" onRequestClose={cancelRest}>
+        <View style={styles.timerBackdrop}>
+          <Text style={styles.timerLabel}>Recupero</Text>
+          <Text style={styles.timerBig}>{mm}:{ss}</Text>
+          <View style={styles.timerBar}>
+            <View
+              style={[
+                styles.timerBarFill,
+                { width: `${Math.max(0, Math.min(100, (restLeft / Math.max(1, restTotal)) * 100))}%` } as any,
+              ]}
+            />
+          </View>
+          <View style={styles.timerActions}>
+            <View style={styles.timerBtn}>
+              <Button testID="rest-skip-button" label="Salta" variant="secondary" onPress={cancelRest} />
+            </View>
+            <View style={styles.timerBtn}>
+              <Button testID="rest-add-button" label="+30s" onPress={() => setRestLeft((n) => n + 30)} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+      {/* silence unused */}
+      <View style={{ position: "absolute", opacity: 0 }}><Text style={StyleSheet.absoluteFill as any} /></View>
+    </View>
+  );
+}
