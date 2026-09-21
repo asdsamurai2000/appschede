@@ -47,7 +47,7 @@ export default function Settings() {
         <View style={styles.row}>
           <View>
             <Text style={styles.rowTitle}>Aspetto</Text>
-            <Text style={styles.rowSub}>Bianco/Rosso o Nero/Rosso</Text>
+            <Text style={styles.rowSub}>Light o Dark</Text>
           </View>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Pressable
