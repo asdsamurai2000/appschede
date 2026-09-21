@@ -9,7 +9,7 @@ import LucideIcon from "@react-native-vector-icons/lucide";
 import { makeStyles, useTheme } from "@/src/theme";
 import { Header } from "@/src/components/header";
 import { Button } from "@/src/components/ui";
-import { api, type Scheda, type SessionItem, type ExerciseItem, type LibraryExercise, type ClientState } from "@/src/api";
+import { api, type Scheda, type SessionItem, type ExerciseItem, type LibraryExercise, type ClientState, type ClientStateHistory } from "@/src/api";
 
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
@@ -90,6 +90,29 @@ const useStyles = makeStyles((c) => ({
   },
   feedbackLabel: { color: c.onBrandTertiary, fontWeight: "800", fontSize: 12 },
   feedbackLine: { color: c.onBrandTertiary, fontSize: 12, lineHeight: 16 },
+  historyBtn: {
+    marginTop: 6, flexDirection: "row", alignItems: "center", gap: 4,
+    alignSelf: "flex-start", paddingVertical: 4,
+  },
+  historyBtnText: {
+    color: c.brandPrimary, fontSize: 11, fontWeight: "800",
+    letterSpacing: 2, textTransform: "uppercase",
+  },
+  historyBtnGhost: {
+    marginTop: 6, flexDirection: "row", alignItems: "center", gap: 4,
+    alignSelf: "flex-start", paddingVertical: 4,
+  },
+  historyBtnGhostText: {
+    color: c.muted, fontSize: 11, fontWeight: "700",
+    letterSpacing: 2, textTransform: "uppercase",
+  },
+  historyRow: { padding: 14, borderBottomWidth: 1, borderBottomColor: c.divider },
+  historyDate: {
+    color: c.muted, fontSize: 10, letterSpacing: 2, textTransform: "uppercase",
+  },
+  historyWeight: { color: c.onSurface, fontWeight: "800", fontSize: 22, marginTop: 4, letterSpacing: -0.5 },
+  historySession: { color: c.brandPrimary, fontSize: 11, letterSpacing: 2, marginTop: 2, textTransform: "uppercase" },
+  historyNote: { color: c.onSurfaceSecondary, fontSize: 13, marginTop: 6, lineHeight: 18 },
 }));
 
 function newExercise(name = ""): ExerciseItem {
@@ -116,6 +139,20 @@ export default function SchedaEditor() {
   const [pickerFor, setPickerFor] = useState<{ sIdx: number; eIdx: number } | null>(null);
   const [library, setLibrary] = useState<LibraryExercise[]>([]);
   const [clientState, setClientState] = useState<Record<string, ClientState>>({});
+  const [historyFor, setHistoryFor] = useState<{ exId: string; exName: string } | null>(null);
+  const [historyItems, setHistoryItems] = useState<ClientStateHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const openHistory = async (exId: string, exName: string) => {
+    setHistoryFor({ exId, exName });
+    setHistoryItems([]);
+    setHistoryLoading(true);
+    try {
+      const r = await api.get<ClientStateHistory[]>(`/schede/${code}/client-state/${exId}/history?limit=30`);
+      setHistoryItems(r.data);
+    } catch {}
+    finally { setHistoryLoading(false); }
+  };
 
   useEffect(() => {
     if (isNew) return;
@@ -357,8 +394,27 @@ export default function SchedaEditor() {
                           {clientState[ex.id].notes}
                         </Text>
                       ) : null}
+                      <Pressable
+                        testID={`open-history-${ex.id}`}
+                        onPress={() => openHistory(ex.id, ex.name || "Esercizio")}
+                        style={styles.historyBtn}
+                        hitSlop={6}
+                      >
+                        <LucideIcon name="line-chart" size={12} color={colors.brandPrimary} />
+                        <Text style={styles.historyBtnText}>Storico progressione</Text>
+                      </Pressable>
                     </View>
-                  ) : null}
+                  ) : (
+                    <Pressable
+                      testID={`open-history-empty-${ex.id}`}
+                      onPress={() => openHistory(ex.id, ex.name || "Esercizio")}
+                      style={styles.historyBtnGhost}
+                      hitSlop={6}
+                    >
+                      <LucideIcon name="line-chart" size={12} color={colors.muted} />
+                      <Text style={styles.historyBtnGhostText}>Storico progressione</Text>
+                    </Pressable>
+                  )}
                 </View>
               ))}
               <View style={styles.sessionActions}>
@@ -417,6 +473,67 @@ export default function SchedaEditor() {
                   <Text style={styles.libDesc} numberOfLines={2}>{it.description}</Text>
                 </Pressable>
               ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!historyFor} transparent animationType="slide" onRequestClose={() => setHistoryFor(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Storico</Text>
+                <Text style={{ color: colors.muted, fontSize: 11, letterSpacing: 2, marginTop: 2, textTransform: "uppercase" }} numberOfLines={1}>
+                  {historyFor?.exName}
+                </Text>
+              </View>
+              <Pressable onPress={() => setHistoryFor(null)} hitSlop={8}>
+                <LucideIcon name="x" size={22} color={colors.onSurface} />
+              </Pressable>
+            </View>
+            <ScrollView>
+              {historyLoading ? (
+                <ActivityIndicator style={{ marginTop: 32 }} color={colors.brandPrimary} />
+              ) : historyItems.length === 0 ? (
+                <View style={{ padding: 32, alignItems: "center", gap: 8 }}>
+                  <LucideIcon name="line-chart" size={28} color={colors.muted} />
+                  <Text style={{ color: colors.muted, fontSize: 12, letterSpacing: 2, textTransform: "uppercase", textAlign: "center" }}>
+                    Nessuna sessione registrata{"\n"}per questo esercizio
+                  </Text>
+                </View>
+              ) : (
+                historyItems.map((h, i) => {
+                  const prev = historyItems[i + 1];
+                  const parseKg = (s: string) => {
+                    const m = (s || "").match(/(-?\d+(?:[.,]\d+)?)/);
+                    return m ? parseFloat(m[1].replace(",", ".")) : null;
+                  };
+                  const curKg = parseKg(h.weight);
+                  const prevKg = prev ? parseKg(prev.weight) : null;
+                  const delta = curKg !== null && prevKg !== null ? curKg - prevKg : null;
+                  return (
+                    <View key={h.id} style={styles.historyRow} testID={`history-item-${i}`}>
+                      <Text style={styles.historyDate}>
+                        {new Date(h.timestamp).toLocaleDateString("it-IT", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
+                        <Text style={styles.historyWeight}>{h.weight || "—"}</Text>
+                        {delta !== null && delta !== 0 ? (
+                          <Text style={{
+                            color: delta > 0 ? colors.success : colors.brandPrimary,
+                            fontSize: 12, fontWeight: "800", letterSpacing: 1,
+                          }}>
+                            {delta > 0 ? "+" : ""}{Number.isInteger(delta) ? delta : delta.toFixed(1)} kg
+                          </Text>
+                        ) : null}
+                      </View>
+                      {h.session_name ? <Text style={styles.historySession}>{h.session_name}</Text> : null}
+                      {h.notes ? <Text style={styles.historyNote}>“{h.notes}”</Text> : null}
+                    </View>
+                  );
+                })
+              )}
             </ScrollView>
           </View>
         </View>

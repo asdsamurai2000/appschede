@@ -115,6 +115,17 @@ class ClientStateUpdate(BaseModel):
     weight: Optional[str] = None
 
 
+class ClientStateHistory(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    code: str
+    exercise_id: str
+    session_id: Optional[str] = None
+    session_name: Optional[str] = None
+    notes: str = ""
+    weight: str = ""
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class ExerciseCreate(BaseModel):
     name: str
     muscle_group: str
@@ -209,17 +220,45 @@ async def delete_scheda(code: str):
         raise HTTPException(404, "Scheda non trovata")
     await db.checkins.delete_many({"code": code})
     await db.client_state.delete_many({"code": code})
+    await db.client_state_history.delete_many({"code": code})
     return {"ok": True}
 
 
 # Check-ins
 @api_router.post("/checkins", response_model=CheckIn)
 async def create_checkin(payload: CheckInCreate):
-    scheda = await db.schede.find_one({"code": payload.code}, {"_id": 0, "code": 1})
+    scheda = await db.schede.find_one({"code": payload.code}, {"_id": 0})
     if not scheda:
         raise HTTPException(404, "Codice scheda non trovato")
     ci = CheckIn(**payload.model_dump())
     await db.checkins.insert_one(ci.model_dump())
+
+    # Snapshot: for each exercise in the completed session, write a history entry
+    # from the current client_state so the host can see progression over time.
+    if payload.session_id:
+        target = None
+        for s in scheda.get("sessions", []):
+            if s.get("id") == payload.session_id:
+                target = s
+                break
+        if target:
+            for ex in target.get("exercises", []):
+                ex_id = ex.get("id")
+                if not ex_id:
+                    continue
+                cs = await db.client_state.find_one(
+                    {"code": payload.code, "exercise_id": ex_id}, {"_id": 0}
+                )
+                snap = ClientStateHistory(
+                    code=payload.code,
+                    exercise_id=ex_id,
+                    session_id=payload.session_id,
+                    session_name=payload.session_name,
+                    notes=(cs or {}).get("notes", "") or "",
+                    weight=(cs or {}).get("weight", "") or ex.get("weight", "") or "",
+                    timestamp=ci.timestamp,
+                )
+                await db.client_state_history.insert_one(snap.model_dump())
     return ci
 
 
@@ -327,6 +366,14 @@ async def upsert_client_state(code: str, exercise_id: str, payload: ClientStateU
     )
     doc = await db.client_state.find_one({"code": code, "exercise_id": exercise_id}, {"_id": 0})
     return ClientState(**doc)
+
+
+@api_router.get("/schede/{code}/client-state/{exercise_id}/history", response_model=List[ClientStateHistory])
+async def client_state_history(code: str, exercise_id: str, limit: int = 30):
+    docs = await db.client_state_history.find(
+        {"code": code, "exercise_id": exercise_id}, {"_id": 0}
+    ).sort("timestamp", -1).to_list(limit)
+    return [ClientStateHistory(**d) for d in docs]
 
 
 @app.on_event("startup")

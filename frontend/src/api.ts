@@ -63,3 +63,14 @@ export type ClientState = {
   weight: string;
   updated_at: string;
 };
+
+export type ClientStateHistory = {
+  id: string;
+  code: string;
+  exercise_id: string;
+  session_id?: string | null;
+  session_name?: string | null;
+  notes: string;
+  weight: string;
+  timestamp: string;
+};
