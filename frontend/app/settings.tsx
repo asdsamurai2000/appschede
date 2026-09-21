@@ -21,7 +21,7 @@ const useStyles = makeStyles((c) => ({
   rowTitle: { color: c.onSurface, fontSize: 14, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase" },
   rowSub: { color: c.muted, fontSize: 11, letterSpacing: 1, marginTop: 2, textTransform: "uppercase" },
   themeChip: {
-    borderWidth: 2, borderColor: c.borderStrong, paddingHorizontal: 12, paddingVertical: 8,
+    borderWidth: 2, borderColor: c.borderStrong, paddingHorizontal: 10, paddingVertical: 6,
   },
   themeChipActive: { backgroundColor: c.brandPrimary, borderColor: c.brandPrimary },
   themeChipText: { color: c.onSurface, fontWeight: "800", fontSize: 12, letterSpacing: 2, textTransform: "uppercase" },
@@ -47,22 +47,21 @@ export default function Settings() {
         <View style={styles.row}>
           <View>
             <Text style={styles.rowTitle}>Aspetto</Text>
-            <Text style={styles.rowSub}>Light o Dark</Text>
           </View>
-          <View style={{ flexDirection: "row", gap: 8 }}>
+          <View style={{ flexDirection: "row", gap: 6 }}>
             <Pressable
               testID="theme-light-btn"
               onPress={() => apply("light")}
               style={[styles.themeChip, scheme === "light" ? styles.themeChipActive : null]}
             >
-              <Text style={scheme === "light" ? styles.themeChipTextActive : styles.themeChipText}>Chiaro</Text>
+              <Text style={scheme === "light" ? styles.themeChipTextActive : styles.themeChipText}>Light</Text>
             </Pressable>
             <Pressable
               testID="theme-dark-btn"
               onPress={() => apply("dark")}
               style={[styles.themeChip, scheme === "dark" ? styles.themeChipActive : null]}
             >
-              <Text style={scheme === "dark" ? styles.themeChipTextActive : styles.themeChipText}>Scuro</Text>
+              <Text style={scheme === "dark" ? styles.themeChipTextActive : styles.themeChipText}>Dark</Text>
             </Pressable>
           </View>
         </View>
