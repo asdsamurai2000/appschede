@@ -161,12 +161,24 @@ export default function SchedaEditor() {
         const r = await api.get<Scheda>(`/schede/${id}`);
         setName(r.data.name);
         setClientName(r.data.client_name);
-        setSessions(r.data.sessions.length ? r.data.sessions : [newSession("Giorno A")]);
         setCode(r.data.code);
         const cs = await api.get<ClientState[]>(`/schede/${id}/client-state`).catch(() => ({ data: [] as ClientState[] }));
         const map: Record<string, ClientState> = {};
         cs.data.forEach((c) => { map[c.exercise_id] = c; });
         setClientState(map);
+        // Merge client's current weight into sessions so the host input reflects it.
+        const parseNum = (s: string) => {
+          const m = (s || "").match(/(-?\d+(?:[.,]\d+)?)/);
+          return m ? m[1].replace(",", ".") : "";
+        };
+        const merged = r.data.sessions.length ? r.data.sessions.map((s) => ({
+          ...s,
+          exercises: s.exercises.map((ex) => {
+            const clientWeight = map[ex.id]?.weight;
+            return { ...ex, weight: clientWeight ? parseNum(clientWeight) : parseNum(ex.weight) };
+          }),
+        })) : [newSession("Giorno A")];
+        setSessions(merged);
       } catch {
         Alert.alert("Errore", "Impossibile caricare la scheda");
         router.back();
@@ -213,6 +225,22 @@ export default function SchedaEditor() {
         setCode(r.data.code);
       } else {
         await api.put<Scheda>(`/schede/${id}`, { name: name.trim(), client_name: clientName.trim(), sessions });
+        // Realign client-state weight to the values the host just prescribed
+        // so on the next session the client sees the updated weight.
+        const targetCode = code || (typeof id === "string" ? id : "");
+        if (targetCode) {
+          await Promise.all(sessions.flatMap((s) => s.exercises.map(async (ex) => {
+            const existing = clientState[ex.id];
+            if (existing && existing.weight !== ex.weight) {
+              try {
+                await api.put(`/schede/${targetCode}/client-state/${ex.id}`, {
+                  notes: existing.notes || "",
+                  weight: ex.weight || "",
+                });
+              } catch {}
+            }
+          })));
+        }
         router.back();
       }
     } catch {
@@ -346,12 +374,13 @@ export default function SchedaEditor() {
                       />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.exSmallLabel}>Peso</Text>
+                      <Text style={styles.exSmallLabel}>Peso (kg)</Text>
                       <TextInput
                         value={ex.weight}
-                        onChangeText={(v) => updateExercise(sIdx, eIdx, { weight: v })}
+                        onChangeText={(v) => updateExercise(sIdx, eIdx, { weight: v.replace(/[^0-9.,]/g, "").replace(",", ".") })}
                         placeholder="—"
                         placeholderTextColor={colors.muted}
+                        keyboardType="numeric"
                         style={styles.exSmallInput}
                       />
                     </View>
