@@ -66,3 +66,23 @@ export async function clearHostVerified() {
   if (Platform.OS === "web") await AsyncStorage.removeItem(K_HOST_VERIFIED);
   else await SecureStore.deleteItemAsync(K_HOST_VERIFIED);
 }
+
+// ---- Client-side per-exercise overrides (weight delta + client notes) ----
+export type ExerciseOverride = { weight?: string; clientNotes?: string };
+export type SessionOverrides = Record<string, ExerciseOverride>; // exerciseId -> override
+
+function overrideKey(code: string) { return `gymcode:overrides:${code}`; }
+
+export async function getSessionOverrides(code: string): Promise<SessionOverrides> {
+  try {
+    const raw = await AsyncStorage.getItem(overrideKey(code));
+    if (!raw) return {};
+    return JSON.parse(raw) as SessionOverrides;
+  } catch {
+    return {};
+  }
+}
+
+export async function saveSessionOverrides(code: string, overrides: SessionOverrides) {
+  await AsyncStorage.setItem(overrideKey(code), JSON.stringify(overrides));
+}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Text, ScrollView, Pressable, ActivityIndicator, Modal, StyleSheet } from "react-native";
+import { View, Text, ScrollView, Pressable, ActivityIndicator, Modal, TextInput } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LucideIcon from "@react-native-vector-icons/lucide";
@@ -8,6 +8,7 @@ import { makeStyles, useTheme } from "@/src/theme";
 import { Header } from "@/src/components/header";
 import { Button } from "@/src/components/ui";
 import { api, type Scheda } from "@/src/api";
+import { getSessionOverrides, saveSessionOverrides, type SessionOverrides } from "@/src/state";
 
 const useStyles = makeStyles((c) => ({
   root: { flex: 1, backgroundColor: c.surface },
@@ -30,8 +31,30 @@ const useStyles = makeStyles((c) => ({
   metaDiv: { borderRightWidth: 1, borderRightColor: c.divider },
   metaLabel: { color: c.muted, fontSize: 10, letterSpacing: 2, textTransform: "uppercase" },
   metaValue: { color: c.onSurface, fontSize: 22, fontWeight: "800", marginTop: 4, letterSpacing: -0.5 },
+  weightBlock: {
+    paddingHorizontal: 12, paddingVertical: 12, borderTopWidth: 1, borderTopColor: c.divider,
+  },
+  weightRow: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    marginTop: 6, gap: 12,
+  },
+  weightStepper: {
+    width: 44, height: 44, borderWidth: 2, borderColor: c.borderStrong,
+    alignItems: "center", justifyContent: "center",
+  },
+  weightValue: {
+    color: c.onSurface, fontSize: 28, fontWeight: "800", letterSpacing: -0.5,
+    flex: 1, textAlign: "center",
+  },
   notesRow: { padding: 12, borderTopWidth: 1, borderTopColor: c.divider },
-  notesText: { color: c.muted, fontSize: 12, letterSpacing: 0.5, fontStyle: "italic" },
+  notesLabel: {
+    color: c.muted, fontSize: 10, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6,
+  },
+  hostNotes: { color: c.onSurface, fontSize: 13, lineHeight: 18, fontStyle: "italic", marginBottom: 10 },
+  clientNoteInput: {
+    borderWidth: 1, borderColor: c.border, backgroundColor: c.surfaceSecondary,
+    color: c.onSurface, fontSize: 13, paddingHorizontal: 10, paddingVertical: 8, minHeight: 44,
+  },
   setsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: c.divider },
   setChip: {
     width: 44, height: 44, borderWidth: 2, borderColor: c.borderStrong,
@@ -60,6 +83,20 @@ const useStyles = makeStyles((c) => ({
 
 type SetStatus = Record<string, number>; // exerciseId -> completed count
 
+// Parse a weight string into { num, unit }. Non-numeric returns num=null.
+function parseWeight(raw: string): { num: number | null; unit: string } {
+  const s = (raw || "").trim();
+  const m = s.match(/^(-?\d+(?:[.,]\d+)?)\s*(.*)$/);
+  if (!m) return { num: null, unit: s };
+  const num = parseFloat(m[1].replace(",", "."));
+  return { num: Number.isFinite(num) ? num : null, unit: (m[2] || "kg").trim() };
+}
+function formatWeight(num: number | null, unit: string): string {
+  if (num === null) return unit || "—";
+  const n = Number.isInteger(num) ? num.toString() : num.toFixed(1);
+  return unit ? `${n} ${unit}` : n;
+}
+
 export default function ActiveSession() {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -71,6 +108,7 @@ export default function ActiveSession() {
   const [loading, setLoading] = useState(true);
   const [done, setDone] = useState<SetStatus>({});
   const [checkingIn, setCheckingIn] = useState(false);
+  const [overrides, setOverrides] = useState<SessionOverrides>({});
 
   // Rest timer
   const [restOpen, setRestOpen] = useState(false);
@@ -83,9 +121,19 @@ export default function ActiveSession() {
       try {
         const r = await api.get<Scheda>(`/schede/${code}`);
         setScheda(r.data);
+        const o = await getSessionOverrides(code!);
+        setOverrides(o);
       } finally { setLoading(false); }
     })();
   }, [code]);
+
+  // Persist overrides whenever they change (post-mount).
+  const savedRef = useRef(false);
+  useEffect(() => {
+    if (!savedRef.current) { savedRef.current = true; return; }
+    if (!code) return;
+    saveSessionOverrides(code, overrides).catch(() => {});
+  }, [overrides, code]);
 
   useEffect(() => () => { if (tickRef.current) clearInterval(tickRef.current); }, []);
 
@@ -162,20 +210,67 @@ export default function ActiveSession() {
                   <Text style={styles.metaLabel}>Reps</Text>
                   <Text style={styles.metaValue}>{ex.reps || "—"}</Text>
                 </View>
-                <View style={[styles.metaCell, styles.metaDiv]}>
-                  <Text style={styles.metaLabel}>Peso</Text>
-                  <Text style={styles.metaValue}>{ex.weight || "—"}</Text>
-                </View>
                 <View style={styles.metaCell}>
                   <Text style={styles.metaLabel}>Rec</Text>
                   <Text style={styles.metaValue}>{ex.rest_seconds}s</Text>
                 </View>
               </View>
-              {ex.notes ? (
-                <View style={styles.notesRow}>
-                  <Text style={styles.notesText}>{ex.notes}</Text>
-                </View>
-              ) : null}
+              {(() => {
+                const raw = overrides[ex.id]?.weight ?? ex.weight ?? "";
+                const { num, unit } = parseWeight(raw);
+                const canStep = num !== null;
+                const step = (delta: number) => {
+                  const cur = num ?? 0;
+                  const next = Math.max(0, cur + delta);
+                  const newWeight = formatWeight(next, unit || "kg");
+                  setOverrides((o) => ({ ...o, [ex.id]: { ...o[ex.id], weight: newWeight } }));
+                };
+                return (
+                  <View style={styles.weightBlock}>
+                    <Text style={styles.metaLabel}>Peso</Text>
+                    <View style={styles.weightRow}>
+                      <Pressable
+                        testID={`weight-minus-${ex.id}`}
+                        onPress={() => step(-1)}
+                        disabled={!canStep}
+                        style={[styles.weightStepper, !canStep ? { opacity: 0.35 } : null]}
+                        hitSlop={8}
+                      >
+                        <LucideIcon name="minus" size={18} color={colors.onSurface} />
+                      </Pressable>
+                      <Text style={styles.weightValue} numberOfLines={1} testID={`weight-value-${ex.id}`}>
+                        {raw ? formatWeight(num, unit) : "—"}
+                      </Text>
+                      <Pressable
+                        testID={`weight-plus-${ex.id}`}
+                        onPress={() => step(1)}
+                        style={styles.weightStepper}
+                        hitSlop={8}
+                      >
+                        <LucideIcon name="plus" size={18} color={colors.onSurface} />
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              })()}
+              <View style={styles.notesRow}>
+                {ex.notes ? (
+                  <>
+                    <Text style={styles.notesLabel}>Note del coach</Text>
+                    <Text style={styles.hostNotes}>{ex.notes}</Text>
+                  </>
+                ) : null}
+                <Text style={styles.notesLabel}>Le tue note</Text>
+                <TextInput
+                  testID={`client-notes-${ex.id}`}
+                  value={overrides[ex.id]?.clientNotes ?? ""}
+                  onChangeText={(v) => setOverrides((o) => ({ ...o, [ex.id]: { ...o[ex.id], clientNotes: v } }))}
+                  placeholder="Aggiungi appunti (sensazioni, peso raggiunto…)"
+                  placeholderTextColor={colors.muted}
+                  multiline
+                  style={styles.clientNoteInput}
+                />
+              </View>
               <View style={styles.setsRow}>
                 {Array.from({ length: ex.sets }).map((_, s) => {
                   const isDone = s < doneSets;
@@ -233,8 +328,6 @@ export default function ActiveSession() {
           </View>
         </View>
       </Modal>
-      {/* silence unused */}
-      <View style={{ position: "absolute", opacity: 0 }}><Text style={StyleSheet.absoluteFill as any} /></View>
     </View>
   );
 }
