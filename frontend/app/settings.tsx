@@ -6,7 +6,7 @@ import LucideIcon from "@react-native-vector-icons/lucide";
 
 import { makeStyles, useTheme, setColorScheme, type ColorScheme } from "@/src/theme";
 import { Header } from "@/src/components/header";
-import { useIsHost, setIsHost, clearLastCode, clearHostVerified } from "@/src/state";
+import { clearLastCode } from "@/src/state";
 
 const useStyles = makeStyles((c) => ({
   root: { flex: 1, backgroundColor: c.surface },
@@ -34,7 +34,6 @@ export default function Settings() {
   const { colors, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const isHost = useIsHost();
 
   const [_, force] = useState(0);
   const apply = (s: ColorScheme) => { setColorScheme(s); force((n) => n + 1); };
@@ -66,24 +65,7 @@ export default function Settings() {
           </View>
         </View>
 
-        <Text style={styles.sectionLabel}>Modalità</Text>
-        <Pressable
-          testID="settings-host-toggle"
-          onPress={async () => {
-            const next = !isHost;
-            if (!next) await clearHostVerified();
-            setIsHost(next);
-          }}
-          style={styles.row}
-        >
-          <View>
-            <Text style={styles.rowTitle}>Modalità Host</Text>
-            <Text style={styles.rowSub}>{isHost ? "Attiva — accedi al pannello" : "Disattiva — inserisci codice"}</Text>
-          </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <LucideIcon name={isHost ? "toggle-right" : "toggle-left"} size={28} color={isHost ? colors.brandPrimary : colors.muted} />
-          </View>
-        </Pressable>
+        <Text style={styles.sectionLabel}>Contenuti</Text>
         <Pressable
           testID="settings-open-library"
           onPress={() => router.push("/library")}

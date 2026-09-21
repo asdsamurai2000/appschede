@@ -9,7 +9,7 @@ import LucideIcon from "@react-native-vector-icons/lucide";
 import { makeStyles, useTheme } from "@/src/theme";
 import { Button } from "@/src/components/ui";
 import { api } from "@/src/api";
-import { setHostVerified } from "@/src/state";
+import { setIsHost, setHostVerified } from "@/src/state";
 
 const useStyles = makeStyles((c) => ({
   root: { flex: 1, backgroundColor: c.surface },
@@ -71,6 +71,7 @@ export default function HostUnlock() {
     try {
       await api.post("/host/verify", { password });
       await setHostVerified();
+      setIsHost(true);
       router.replace("/host");
     } catch (e: any) {
       if (e?.response?.status === 429) {

@@ -18,7 +18,7 @@ import LucideIcon from "@react-native-vector-icons/lucide";
 import { makeStyles, useTheme } from "@/src/theme";
 import { Button } from "@/src/components/ui";
 import { api } from "@/src/api";
-import { setIsHost, useIsHost, saveLastCode, getLastCode, getHostVerified } from "@/src/state";
+import { setIsHost, saveLastCode, getLastCode, getHostVerified } from "@/src/state";
 
 const LOGO_LIGHT = require("../assets/images/brand-logo.png");
 const LOGO_DARK = require("../assets/images/brand-logo-dark.png");
@@ -140,7 +140,6 @@ export default function Index() {
   const { colors, scheme } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const isHost = useIsHost();
 
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -152,17 +151,16 @@ export default function Index() {
   }, []);
 
   const goHost = async () => {
-    setIsHost(true);
     const verified = await getHostVerified();
-    if (verified) router.push("/host");
-    else router.push("/host-unlock");
+    if (verified) {
+      setIsHost(true);
+      router.push("/host");
+    } else {
+      router.push("/host-unlock");
+    }
   };
 
   const submit = async () => {
-    if (isHost) {
-      goHost();
-      return;
-    }
     if (code.length !== 6) {
       setError("Inserisci un codice a 6 cifre");
       return;
@@ -199,34 +197,30 @@ export default function Index() {
           </View>
 
           <Text style={styles.headline}>
-            {isHost ? (<>Accedi<Text style={styles.accent}>.</Text>{"\n"}Modalità Host</>) : (<>Inserisci{"\n"}Il <Text style={styles.accent}>Codice</Text></>)}
+            Inserisci{"\n"}Il <Text style={styles.accent}>Codice</Text>
           </Text>
-          <Text style={styles.sub}>
-            {isHost ? "Gestisci le schede dei tuoi clienti" : "Il tuo coach ti ha dato un codice a 6 cifre"}
-          </Text>
+          <Text style={styles.sub}>Il tuo coach ti ha dato un codice a 6 cifre</Text>
 
-          {!isHost && (
-            <View style={[styles.inputWrap, error ? styles.inputError : null]}>
-              <TextInput
-                testID="access-code-input"
-                value={code}
-                onChangeText={(v) => {
-                  setCode(v.replace(/\D/g, "").slice(0, 6));
-                  setError(null);
-                }}
-                placeholder="000000"
-                placeholderTextColor={colors.muted}
-                keyboardType="number-pad"
-                maxLength={6}
-                style={styles.input}
-                returnKeyType="go"
-                onSubmitEditing={submit}
-              />
-            </View>
-          )}
+          <View style={[styles.inputWrap, error ? styles.inputError : null]}>
+            <TextInput
+              testID="access-code-input"
+              value={code}
+              onChangeText={(v) => {
+                setCode(v.replace(/\D/g, "").slice(0, 6));
+                setError(null);
+              }}
+              placeholder="000000"
+              placeholderTextColor={colors.muted}
+              keyboardType="number-pad"
+              maxLength={6}
+              style={styles.input}
+              returnKeyType="go"
+              onSubmitEditing={submit}
+            />
+          </View>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          {!isHost && last && last.length === 6 && last !== code ? (
+          {last && last.length === 6 && last !== code ? (
             <View style={styles.quickRow}>
               <Text style={styles.quickText}>Ultimo codice</Text>
               <Pressable testID="last-code-chip" onPress={() => setCode(last)} style={styles.quickBtn}>
@@ -240,13 +234,13 @@ export default function Index() {
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <Button
           testID="submit-access-button"
-          label={isHost ? "Vai al pannello host" : "Entra"}
+          label="Entra"
           onPress={submit}
           loading={loading}
         />
         <Pressable
-          testID="toggle-host-mode-button"
-          onPress={() => setIsHost(!isHost)}
+          testID="open-host-unlock-button"
+          onPress={goHost}
           style={styles.hostToggleRow}
           hitSlop={4}
         >
@@ -254,7 +248,7 @@ export default function Index() {
             <LucideIcon name="shield" size={16} color={colors.onSurface} />
             <Text style={styles.hostToggleLabel}>Modalità Host</Text>
           </View>
-          <Text style={styles.hostToggleState}>{isHost ? "On" : "Off"}</Text>
+          <LucideIcon name="chevron-right" size={18} color={colors.onSurface} />
         </Pressable>
         <Pressable testID="open-settings-link" onPress={() => router.push("/settings")}>
           <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6, paddingVertical: 8 }}>
