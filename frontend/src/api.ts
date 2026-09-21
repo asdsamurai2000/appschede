@@ -55,3 +55,11 @@ export type LibraryExercise = {
   muscle_group: string;
   description: string;
 };
+
+export type ClientState = {
+  code: string;
+  exercise_id: string;
+  notes: string;
+  weight: string;
+  updated_at: string;
+};

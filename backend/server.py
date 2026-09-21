@@ -102,6 +102,19 @@ class Exercise(BaseModel):
     description: str
 
 
+class ClientState(BaseModel):
+    code: str
+    exercise_id: str
+    notes: str = ""
+    weight: str = ""
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class ClientStateUpdate(BaseModel):
+    notes: Optional[str] = None
+    weight: Optional[str] = None
+
+
 class ExerciseCreate(BaseModel):
     name: str
     muscle_group: str
@@ -195,6 +208,7 @@ async def delete_scheda(code: str):
     if r.deleted_count == 0:
         raise HTTPException(404, "Scheda non trovata")
     await db.checkins.delete_many({"code": code})
+    await db.client_state.delete_many({"code": code})
     return {"ok": True}
 
 
@@ -288,6 +302,31 @@ async def delete_exercise(exercise_id: str):
     if r.deleted_count == 0:
         raise HTTPException(404, "Esercizio non trovato")
     return {"ok": True}
+
+
+# Client state (per-exercise notes + weight override written by the client)
+@api_router.get("/schede/{code}/client-state", response_model=List[ClientState])
+async def list_client_state(code: str):
+    docs = await db.client_state.find({"code": code}, {"_id": 0}).to_list(1000)
+    return [ClientState(**d) for d in docs]
+
+
+@api_router.put("/schede/{code}/client-state/{exercise_id}", response_model=ClientState)
+async def upsert_client_state(code: str, exercise_id: str, payload: ClientStateUpdate):
+    scheda = await db.schede.find_one({"code": code}, {"_id": 0, "code": 1})
+    if not scheda:
+        raise HTTPException(404, "Codice scheda non trovato")
+    update = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    update["code"] = code
+    update["exercise_id"] = exercise_id
+    update["updated_at"] = datetime.now(timezone.utc)
+    await db.client_state.update_one(
+        {"code": code, "exercise_id": exercise_id},
+        {"$set": update},
+        upsert=True,
+    )
+    doc = await db.client_state.find_one({"code": code, "exercise_id": exercise_id}, {"_id": 0})
+    return ClientState(**doc)
 
 
 @app.on_event("startup")

@@ -9,7 +9,7 @@ import LucideIcon from "@react-native-vector-icons/lucide";
 import { makeStyles, useTheme } from "@/src/theme";
 import { Header } from "@/src/components/header";
 import { Button } from "@/src/components/ui";
-import { api, type Scheda, type SessionItem, type ExerciseItem, type LibraryExercise } from "@/src/api";
+import { api, type Scheda, type SessionItem, type ExerciseItem, type LibraryExercise, type ClientState } from "@/src/api";
 
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
@@ -75,6 +75,21 @@ const useStyles = makeStyles((c) => ({
   libName: { color: c.onSurface, fontWeight: "700", fontSize: 15 },
   libMuscle: { color: c.brandPrimary, fontSize: 11, letterSpacing: 2, textTransform: "uppercase", marginTop: 2 },
   libDesc: { color: c.muted, fontSize: 12, marginTop: 4 },
+  // Client feedback block (visible to host inside each exercise)
+  feedbackBox: {
+    marginTop: 8, borderWidth: 2, borderColor: c.brandPrimary,
+    backgroundColor: c.brandTertiary, padding: 8, gap: 4,
+  },
+  feedbackHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
+  feedbackTitle: {
+    color: c.onBrandTertiary, flex: 1, fontSize: 11, fontWeight: "800",
+    letterSpacing: 2, textTransform: "uppercase",
+  },
+  feedbackDate: {
+    color: c.onBrandTertiary, fontSize: 10, letterSpacing: 1, textTransform: "uppercase",
+  },
+  feedbackLabel: { color: c.onBrandTertiary, fontWeight: "800", fontSize: 12 },
+  feedbackLine: { color: c.onBrandTertiary, fontSize: 12, lineHeight: 16 },
 }));
 
 function newExercise(name = ""): ExerciseItem {
@@ -100,6 +115,7 @@ export default function SchedaEditor() {
   const [saving, setSaving] = useState(false);
   const [pickerFor, setPickerFor] = useState<{ sIdx: number; eIdx: number } | null>(null);
   const [library, setLibrary] = useState<LibraryExercise[]>([]);
+  const [clientState, setClientState] = useState<Record<string, ClientState>>({});
 
   useEffect(() => {
     if (isNew) return;
@@ -110,6 +126,10 @@ export default function SchedaEditor() {
         setClientName(r.data.client_name);
         setSessions(r.data.sessions.length ? r.data.sessions : [newSession("Giorno A")]);
         setCode(r.data.code);
+        const cs = await api.get<ClientState[]>(`/schede/${id}/client-state`).catch(() => ({ data: [] as ClientState[] }));
+        const map: Record<string, ClientState> = {};
+        cs.data.forEach((c) => { map[c.exercise_id] = c; });
+        setClientState(map);
       } catch {
         Alert.alert("Errore", "Impossibile caricare la scheda");
         router.back();
@@ -316,6 +336,29 @@ export default function SchedaEditor() {
                     placeholderTextColor={colors.muted}
                     style={[styles.exSmallInput, { flex: undefined, marginTop: 2 }]}
                   />
+                  {clientState[ex.id] && (clientState[ex.id].notes || clientState[ex.id].weight) ? (
+                    <View style={styles.feedbackBox} testID={`client-feedback-${ex.id}`}>
+                      <View style={styles.feedbackHeader}>
+                        <LucideIcon name="message-circle" size={12} color={colors.brandPrimary} />
+                        <Text style={styles.feedbackTitle}>Feedback cliente</Text>
+                        <Text style={styles.feedbackDate}>
+                          {new Date(clientState[ex.id].updated_at).toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
+                        </Text>
+                      </View>
+                      {clientState[ex.id].weight && clientState[ex.id].weight !== ex.weight ? (
+                        <Text style={styles.feedbackLine}>
+                          <Text style={styles.feedbackLabel}>Peso attuale: </Text>
+                          {clientState[ex.id].weight}
+                        </Text>
+                      ) : null}
+                      {clientState[ex.id].notes ? (
+                        <Text style={styles.feedbackLine}>
+                          <Text style={styles.feedbackLabel}>Note: </Text>
+                          {clientState[ex.id].notes}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
                 </View>
               ))}
               <View style={styles.sessionActions}>

@@ -7,7 +7,7 @@ import LucideIcon from "@react-native-vector-icons/lucide";
 import { makeStyles, useTheme } from "@/src/theme";
 import { Header } from "@/src/components/header";
 import { Button } from "@/src/components/ui";
-import { api, type Scheda } from "@/src/api";
+import { api, type Scheda, type ClientState } from "@/src/api";
 import { getSessionOverrides, saveSessionOverrides, type SessionOverrides } from "@/src/state";
 
 const useStyles = makeStyles((c) => ({
@@ -119,21 +119,57 @@ export default function ActiveSession() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.get<Scheda>(`/schede/${code}`);
+        const [r, s] = await Promise.all([
+          api.get<Scheda>(`/schede/${code}`),
+          api.get<ClientState[]>(`/schede/${code}/client-state`).catch(() => ({ data: [] as ClientState[] })),
+        ]);
         setScheda(r.data);
-        const o = await getSessionOverrides(code!);
-        setOverrides(o);
+        const local = await getSessionOverrides(code!);
+        // Merge: server state wins if its updated_at is newer than local isn't tracked → server preferred on load.
+        const merged: SessionOverrides = { ...local };
+        for (const cs of s.data) {
+          merged[cs.exercise_id] = {
+            weight: cs.weight || merged[cs.exercise_id]?.weight,
+            clientNotes: cs.notes || merged[cs.exercise_id]?.clientNotes,
+          };
+        }
+        setOverrides(merged);
       } finally { setLoading(false); }
     })();
   }, [code]);
 
-  // Persist overrides whenever they change (post-mount).
+  // Persist overrides locally + push to backend (debounced per exercise).
   const savedRef = useRef(false);
+  const debounceRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const lastSentRef = useRef<SessionOverrides>({});
+
   useEffect(() => {
-    if (!savedRef.current) { savedRef.current = true; return; }
+    if (!savedRef.current) {
+      savedRef.current = true;
+      lastSentRef.current = overrides;
+      return;
+    }
     if (!code) return;
     saveSessionOverrides(code, overrides).catch(() => {});
+    // Diff & schedule per-exercise sync
+    for (const [exId, cur] of Object.entries(overrides)) {
+      const prev = lastSentRef.current[exId];
+      if (prev?.weight === cur.weight && prev?.clientNotes === cur.clientNotes) continue;
+      if (debounceRef.current[exId]) clearTimeout(debounceRef.current[exId]);
+      debounceRef.current[exId] = setTimeout(() => {
+        api.put(`/schede/${code}/client-state/${exId}`, {
+          notes: cur.clientNotes ?? "",
+          weight: cur.weight ?? "",
+        }).catch(() => {});
+        lastSentRef.current = { ...lastSentRef.current, [exId]: { ...cur } };
+      }, 800);
+    }
   }, [overrides, code]);
+
+  useEffect(() => () => {
+    const timers = debounceRef.current;
+    Object.values(timers).forEach((t) => clearTimeout(t));
+  }, []);
 
   useEffect(() => () => { if (tickRef.current) clearInterval(tickRef.current); }, []);
 
