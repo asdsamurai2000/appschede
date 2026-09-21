@@ -9,6 +9,7 @@ import {
   ScrollView,
   Keyboard,
   TouchableWithoutFeedback,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,10 +26,10 @@ const useStyles = makeStyles((c) => ({
   brand: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
     marginTop: 24,
   },
-  brandDot: { width: 14, height: 14, backgroundColor: c.brandPrimary },
+  brandLogo: { width: 44, height: 44 },
   brandText: {
     color: c.onSurface,
     fontSize: 12,
@@ -187,7 +188,7 @@ export default function Index() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.brand}>
-            <View style={styles.brandDot} />
+            <Image source={require("../assets/images/brand-logo.png")} style={styles.brandLogo} resizeMode="contain" />
             <View>
               <Text style={styles.brandText}>A.S.D. Samurai 2000</Text>
               <Text style={styles.brandSubtitle}>Schede Personalizzate</Text>
