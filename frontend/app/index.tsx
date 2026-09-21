@@ -10,6 +10,7 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   Image,
+  useWindowDimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -32,17 +33,14 @@ const useStyles = makeStyles((c) => ({
     gap: 10,
     marginTop: 24,
   },
-  brandLogo: { width: 44, height: 44 },
   brandText: {
     color: c.onSurface,
-    fontSize: 12,
     letterSpacing: 3,
     fontWeight: "700",
     textTransform: "uppercase",
   },
   brandSubtitle: {
     color: c.muted,
-    fontSize: 11,
     letterSpacing: 2,
     fontWeight: "600",
     marginTop: 4,
@@ -140,6 +138,13 @@ export default function Index() {
   const { colors, scheme } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+
+  // Responsive brand sizing: scale logo + text with screen width, clamped.
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+  const logoSize = clamp(width * 0.12, 40, 72);
+  const brandFont = clamp(width * 0.036, 12, 20);
+  const subtitleFont = clamp(width * 0.032, 10, 17);
 
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -189,10 +194,18 @@ export default function Index() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.brand}>
-            <Image source={scheme === "dark" ? LOGO_DARK : LOGO_LIGHT} style={styles.brandLogo} resizeMode="contain" />
-            <View>
-              <Text style={styles.brandText}>A.S.D. Samurai 2000</Text>
-              <Text style={styles.brandSubtitle}>Schede Personalizzate</Text>
+            <Image
+              source={scheme === "dark" ? LOGO_DARK : LOGO_LIGHT}
+              style={{ width: logoSize, height: logoSize }}
+              resizeMode="contain"
+            />
+            <View style={{ flexShrink: 1 }}>
+              <Text style={[styles.brandText, { fontSize: brandFont }]} numberOfLines={1} adjustsFontSizeToFit>
+                A.S.D. Samurai 2000
+              </Text>
+              <Text style={[styles.brandSubtitle, { fontSize: subtitleFont }]} numberOfLines={1} adjustsFontSizeToFit>
+                Schede Personalizzate
+              </Text>
             </View>
           </View>
 
