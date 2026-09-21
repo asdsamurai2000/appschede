@@ -48,17 +48,14 @@ const useStyles = makeStyles((c) => ({
   },
   headline: {
     color: c.onSurface,
-    fontSize: 40,
     fontWeight: "800",
     letterSpacing: -1,
     marginTop: 48,
     textTransform: "uppercase",
-    lineHeight: 42,
   },
   accent: { color: c.brandPrimary },
   sub: {
     color: c.muted,
-    fontSize: 13,
     letterSpacing: 1,
     marginTop: 12,
     textTransform: "uppercase",
@@ -145,6 +142,9 @@ export default function Index() {
   const logoSize = clamp(width * 0.12, 40, 72);
   const brandFont = clamp(width * 0.036, 12, 20);
   const subtitleFont = clamp(width * 0.032, 10, 17);
+  const headlineFont = clamp(width * 0.11, 30, 64);
+  const headlineLine = Math.round(headlineFont * 1.05);
+  const subFont = clamp(width * 0.033, 11, 16);
 
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -209,10 +209,14 @@ export default function Index() {
             </View>
           </View>
 
-          <Text style={styles.headline}>
+          <Text
+            style={[styles.headline, { fontSize: headlineFont, lineHeight: headlineLine }]}
+            adjustsFontSizeToFit
+            numberOfLines={2}
+          >
             Inserisci{"\n"}Il <Text style={styles.accent}>Codice</Text>
           </Text>
-          <Text style={styles.sub}>Il tuo coach ti ha dato un codice a 6 cifre</Text>
+          <Text style={[styles.sub, { fontSize: subFont }]}>Il tuo coach ti ha dato un codice a 6 cifre</Text>
 
           <View style={[styles.inputWrap, error ? styles.inputError : null]}>
             <TextInput
