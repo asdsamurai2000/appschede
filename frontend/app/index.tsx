@@ -32,8 +32,16 @@ const useStyles = makeStyles((c) => ({
   brandText: {
     color: c.onSurface,
     fontSize: 12,
-    letterSpacing: 4,
+    letterSpacing: 3,
     fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  brandSubtitle: {
+    color: c.muted,
+    fontSize: 11,
+    letterSpacing: 2,
+    fontWeight: "600",
+    marginTop: 4,
     textTransform: "uppercase",
   },
   headline: {
@@ -180,7 +188,10 @@ export default function Index() {
         >
           <View style={styles.brand}>
             <View style={styles.brandDot} />
-            <Text style={styles.brandText}>GymCode / v1</Text>
+            <View>
+              <Text style={styles.brandText}>A.S.D. Samurai 2000</Text>
+              <Text style={styles.brandSubtitle}>Schede Personalizzate</Text>
+            </View>
           </View>
 
           <Text style={styles.headline}>

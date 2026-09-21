@@ -115,8 +115,8 @@ export default function Settings() {
         <Text style={styles.sectionLabel}>Info</Text>
         <View style={styles.row}>
           <View>
-            <Text style={styles.rowTitle}>GymCode</Text>
-            <Text style={styles.aboutText}>Versione 1.0 · Schede su codice</Text>
+            <Text style={styles.rowTitle}>A.S.D. Samurai 2000</Text>
+            <Text style={styles.aboutText}>Schede Personalizzate · v1.0</Text>
           </View>
           <LucideIcon name="info" size={20} color={colors.onSurface} />
         </View>
