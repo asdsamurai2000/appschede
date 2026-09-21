@@ -266,16 +266,18 @@ export default function ActiveSession() {
                   <Text style={styles.metaLabel}>Serie</Text>
                   <Text style={styles.metaValue}>{ex.sets}</Text>
                 </View>
-                <View style={[styles.metaCell, styles.metaDiv]}>
-                  <Text style={styles.metaLabel}>Reps</Text>
+                <View style={isWarmup ? styles.metaCell : [styles.metaCell, styles.metaDiv]}>
+                  <Text style={styles.metaLabel}>{isWarmup ? "Durata" : "Reps"}</Text>
                   <Text style={styles.metaValue}>{ex.reps || "—"}</Text>
                 </View>
-                <View style={styles.metaCell}>
-                  <Text style={styles.metaLabel}>Rec</Text>
-                  <Text style={styles.metaValue}>{ex.rest_seconds}s</Text>
-                </View>
+                {!isWarmup ? (
+                  <View style={styles.metaCell}>
+                    <Text style={styles.metaLabel}>Rec</Text>
+                    <Text style={styles.metaValue}>{ex.rest_seconds}s</Text>
+                  </View>
+                ) : null}
               </View>
-              {(() => {
+              {!isWarmup ? (() => {
                 const raw = overrides[ex.id]?.weight ?? ex.weight ?? "";
                 const { num, unit } = parseWeight(raw);
                 const canStep = num !== null;
@@ -312,7 +314,7 @@ export default function ActiveSession() {
                     </View>
                   </View>
                 );
-              })()}
+              })() : null}
               <View style={styles.notesRow}>
                 {ex.notes ? (
                   <>
@@ -346,7 +348,7 @@ export default function ActiveSession() {
                   );
                 })}
               </View>
-              {ex.rest_seconds > 0 ? (
+              {!isWarmup && ex.rest_seconds > 0 ? (
                 <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
                   <Pressable
                     testID={`start-rest-${ex.id}`}
