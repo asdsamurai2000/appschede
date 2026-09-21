@@ -1,12 +1,10 @@
 import { useCallback, useState } from "react";
 import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LucideIcon from "@react-native-vector-icons/lucide";
 
 import { makeStyles, useTheme } from "@/src/theme";
 import { Header } from "@/src/components/header";
-import { Button } from "@/src/components/ui";
 import { api, type Scheda, type CheckInStats, type CheckIn } from "@/src/api";
 import { clearLastCode } from "@/src/state";
 
@@ -54,7 +52,6 @@ function fmtDate(iso: string) {
 export default function ClientDashboard() {
   const styles = useStyles();
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { code } = useLocalSearchParams<{ code: string }>();
 
@@ -63,7 +60,6 @@ export default function ClientDashboard() {
   const [history, setHistory] = useState<CheckIn[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [checkingIn, setCheckingIn] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -79,14 +75,6 @@ export default function ClientDashboard() {
   }, [code]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
-
-  const checkIn = async () => {
-    setCheckingIn(true);
-    try {
-      await api.post("/checkins", { code });
-      await load();
-    } finally { setCheckingIn(false); }
-  };
 
   const exit = async () => { await clearLastCode(); router.replace("/"); };
 
@@ -119,7 +107,7 @@ export default function ClientDashboard() {
         }
       >
         <View style={{ marginTop: 16 }}>
-          <Text style={styles.bigLabel}>Questa Settimana</Text>
+          <Text style={styles.bigLabel}>Ingressi Questa Settimana</Text>
           <Text style={styles.bigNumber} testID="week-count">{stats.week}</Text>
         </View>
 
@@ -167,7 +155,7 @@ export default function ClientDashboard() {
 
         {history.length > 0 ? (
           <>
-            <Text style={styles.sectionLabel}>Ultimi Check-in</Text>
+            <Text style={styles.sectionLabel}>Ultimi Ingressi</Text>
             {history.map((h) => (
               <View key={h.id} style={styles.historyItem}>
                 <Text style={styles.historyText}>{fmtDate(h.timestamp)}</Text>
@@ -177,9 +165,6 @@ export default function ClientDashboard() {
           </>
         ) : null}
       </ScrollView>
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
-        <Button testID="checkin-button" label="Check-in Palestra" onPress={checkIn} loading={checkingIn} />
-      </View>
     </View>
   );
 }
