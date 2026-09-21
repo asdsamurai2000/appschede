@@ -1,9 +1,12 @@
 // Persistent local state: host flag + last client code.
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 import { useEffect, useState } from "react";
 
 const K_HOST = "gymcode:isHost";
 const K_LAST_CODE = "gymcode:lastCode";
+const K_HOST_VERIFIED = "gymcode.host.verified.v1";
 
 let hostState = false;
 const hostListeners = new Set<(v: boolean) => void>();
@@ -44,4 +47,22 @@ export async function getLastCode(): Promise<string | null> {
 
 export async function clearLastCode() {
   await AsyncStorage.removeItem(K_LAST_CODE);
+}
+
+// ---- Host verified (password gate) ----
+export async function getHostVerified(): Promise<boolean> {
+  const v = Platform.OS === "web"
+    ? await AsyncStorage.getItem(K_HOST_VERIFIED)
+    : await SecureStore.getItemAsync(K_HOST_VERIFIED);
+  return v === "1";
+}
+
+export async function setHostVerified() {
+  if (Platform.OS === "web") await AsyncStorage.setItem(K_HOST_VERIFIED, "1");
+  else await SecureStore.setItemAsync(K_HOST_VERIFIED, "1");
+}
+
+export async function clearHostVerified() {
+  if (Platform.OS === "web") await AsyncStorage.removeItem(K_HOST_VERIFIED);
+  else await SecureStore.deleteItemAsync(K_HOST_VERIFIED);
 }

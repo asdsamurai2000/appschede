@@ -6,7 +6,7 @@ import LucideIcon from "@react-native-vector-icons/lucide";
 
 import { makeStyles, useTheme, setColorScheme, type ColorScheme } from "@/src/theme";
 import { Header } from "@/src/components/header";
-import { useIsHost, setIsHost, clearLastCode } from "@/src/state";
+import { useIsHost, setIsHost, clearLastCode, clearHostVerified } from "@/src/state";
 
 const useStyles = makeStyles((c) => ({
   root: { flex: 1, backgroundColor: c.surface },
@@ -70,7 +70,11 @@ export default function Settings() {
         <Text style={styles.sectionLabel}>Modalità</Text>
         <Pressable
           testID="settings-host-toggle"
-          onPress={() => setIsHost(!isHost)}
+          onPress={async () => {
+            const next = !isHost;
+            if (!next) await clearHostVerified();
+            setIsHost(next);
+          }}
           style={styles.row}
         >
           <View>

@@ -17,7 +17,7 @@ import LucideIcon from "@react-native-vector-icons/lucide";
 import { makeStyles, useTheme } from "@/src/theme";
 import { Button } from "@/src/components/ui";
 import { api } from "@/src/api";
-import { setIsHost, useIsHost, saveLastCode, getLastCode } from "@/src/state";
+import { setIsHost, useIsHost, saveLastCode, getLastCode, getHostVerified } from "@/src/state";
 
 const useStyles = makeStyles((c) => ({
   root: { flex: 1, backgroundColor: c.surface },
@@ -139,9 +139,11 @@ export default function Index() {
     getLastCode().then(setLast);
   }, []);
 
-  const goHost = () => {
+  const goHost = async () => {
     setIsHost(true);
-    router.push("/host");
+    const verified = await getHostVerified();
+    if (verified) router.push("/host");
+    else router.push("/host-unlock");
   };
 
   const submit = async () => {

@@ -1,14 +1,17 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Request
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import random
 import string
 import logging
+import time
+import bcrypt
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict
 import uuid
 from datetime import datetime, timezone, timedelta
 
@@ -22,6 +25,21 @@ db = client[os.environ['DB_NAME']]
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
+
+HOST_PASSWORD_HASH = os.environ.get("HOST_PASSWORD_HASH", "").encode("ascii")
+if not HOST_PASSWORD_HASH.startswith((b"$2a$", b"$2b$", b"$2y$")):
+    raise RuntimeError("HOST_PASSWORD_HASH mancante o non valido nel .env")
+
+# Semplice rate limit in-memory per IP: max 5 tentativi / minuto
+_login_attempts: Dict[str, List[float]] = {}
+def _check_rate(ip: str) -> bool:
+    now = time.time()
+    window = [t for t in _login_attempts.get(ip, []) if now - t < 60]
+    _login_attempts[ip] = window
+    return len(window) < 5
+
+def _record_attempt(ip: str) -> None:
+    _login_attempts.setdefault(ip, []).append(time.time())
 
 
 # ----- Models -----
@@ -109,6 +127,27 @@ async def gen_unique_code() -> str:
 @api_router.get("/")
 async def root():
     return {"message": "GymCode API"}
+
+
+# Host auth
+class HostVerifyRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=72)
+
+
+@api_router.post("/host/verify")
+async def host_verify(request: Request, body: HostVerifyRequest):
+    ip = request.client.host if request.client else "unknown"
+    if not _check_rate(ip):
+        raise HTTPException(429, "Troppi tentativi, riprova tra un minuto")
+    supplied = body.password.encode("utf-8")
+    if len(supplied) > 72:
+        _record_attempt(ip)
+        raise HTTPException(401, "Password host non valida")
+    ok = await run_in_threadpool(bcrypt.checkpw, supplied, HOST_PASSWORD_HASH)
+    if not ok:
+        _record_attempt(ip)
+        raise HTTPException(401, "Password host non valida")
+    return {"verified": True}
 
 
 # Schede
