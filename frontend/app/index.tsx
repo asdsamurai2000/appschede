@@ -20,6 +20,9 @@ import { Button } from "@/src/components/ui";
 import { api } from "@/src/api";
 import { setIsHost, useIsHost, saveLastCode, getLastCode, getHostVerified } from "@/src/state";
 
+const LOGO_LIGHT = require("../assets/images/brand-logo.png");
+const LOGO_DARK = require("../assets/images/brand-logo-dark.png");
+
 const useStyles = makeStyles((c) => ({
   root: { flex: 1, backgroundColor: c.surface },
   scroll: { flexGrow: 1, paddingHorizontal: 20 },
@@ -134,7 +137,7 @@ const useStyles = makeStyles((c) => ({
 
 export default function Index() {
   const styles = useStyles();
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const isHost = useIsHost();
@@ -188,7 +191,7 @@ export default function Index() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.brand}>
-            <Image source={require("../assets/images/brand-logo.png")} style={styles.brandLogo} resizeMode="contain" />
+            <Image source={scheme === "dark" ? LOGO_DARK : LOGO_LIGHT} style={styles.brandLogo} resizeMode="contain" />
             <View>
               <Text style={styles.brandText}>A.S.D. Samurai 2000</Text>
               <Text style={styles.brandSubtitle}>Schede Personalizzate</Text>
