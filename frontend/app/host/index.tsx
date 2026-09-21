@@ -174,6 +174,20 @@ export default function HostDashboard() {
               </View>
               <LucideIcon name="chevron-right" size={22} color={colors.onSurface} />
             </Pressable>
+            <Pressable
+              testID="host-warmup-tile"
+              onPress={() => router.push("/host/warmup")}
+              style={[styles.libraryTile, { marginTop: -2 }]}
+            >
+              <View style={styles.libraryTileLeft}>
+                <LucideIcon name="flame" size={22} color={colors.brandPrimary} />
+                <View>
+                  <Text style={styles.libraryTileTitle}>Riscaldamento</Text>
+                  <Text style={styles.libraryTileSub}>Applicato a tutti i clienti</Text>
+                </View>
+              </View>
+              <LucideIcon name="chevron-right" size={22} color={colors.onSurface} />
+            </Pressable>
             <Text style={styles.sectionLabel}>Schede Attive</Text>
           </View>
         }

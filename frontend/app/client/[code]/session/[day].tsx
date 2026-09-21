@@ -7,7 +7,7 @@ import LucideIcon from "@react-native-vector-icons/lucide";
 import { makeStyles, useTheme } from "@/src/theme";
 import { Header } from "@/src/components/header";
 import { Button } from "@/src/components/ui";
-import { api, type Scheda, type ClientState } from "@/src/api";
+import { api, type Scheda, type SessionItem, type ClientState, type WarmupTemplate } from "@/src/api";
 import { getSessionOverrides, saveSessionOverrides, type SessionOverrides } from "@/src/state";
 
 const useStyles = makeStyles((c) => ({
@@ -105,10 +105,13 @@ export default function ActiveSession() {
   const { code, day } = useLocalSearchParams<{ code: string; day: string }>();
 
   const [scheda, setScheda] = useState<Scheda | null>(null);
+  const [warmupSession, setWarmupSession] = useState<SessionItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [done, setDone] = useState<SetStatus>({});
   const [checkingIn, setCheckingIn] = useState(false);
   const [overrides, setOverrides] = useState<SessionOverrides>({});
+
+  const isWarmup = day === "warmup";
 
   // Rest timer
   const [restOpen, setRestOpen] = useState(false);
@@ -119,24 +122,40 @@ export default function ActiveSession() {
   useEffect(() => {
     (async () => {
       try {
-        const [r, s] = await Promise.all([
-          api.get<Scheda>(`/schede/${code}`),
-          api.get<ClientState[]>(`/schede/${code}/client-state`).catch(() => ({ data: [] as ClientState[] })),
-        ]);
-        setScheda(r.data);
-        const local = await getSessionOverrides(code!);
-        // Merge: server state wins if its updated_at is newer than local isn't tracked → server preferred on load.
-        const merged: SessionOverrides = { ...local };
-        for (const cs of s.data) {
-          merged[cs.exercise_id] = {
-            weight: cs.weight || merged[cs.exercise_id]?.weight,
-            clientNotes: cs.notes || merged[cs.exercise_id]?.clientNotes,
-          };
+        if (isWarmup) {
+          const [w, s] = await Promise.all([
+            api.get<WarmupTemplate>(`/warmup`),
+            api.get<ClientState[]>(`/schede/${code}/client-state`).catch(() => ({ data: [] as ClientState[] })),
+          ]);
+          setWarmupSession({ id: "warmup", name: "Riscaldamento", exercises: w.data.exercises });
+          const local = await getSessionOverrides(code!);
+          const merged: SessionOverrides = { ...local };
+          for (const cs of s.data) {
+            merged[cs.exercise_id] = {
+              weight: cs.weight || merged[cs.exercise_id]?.weight,
+              clientNotes: cs.notes || merged[cs.exercise_id]?.clientNotes,
+            };
+          }
+          setOverrides(merged);
+        } else {
+          const [r, s] = await Promise.all([
+            api.get<Scheda>(`/schede/${code}`),
+            api.get<ClientState[]>(`/schede/${code}/client-state`).catch(() => ({ data: [] as ClientState[] })),
+          ]);
+          setScheda(r.data);
+          const local = await getSessionOverrides(code!);
+          const merged: SessionOverrides = { ...local };
+          for (const cs of s.data) {
+            merged[cs.exercise_id] = {
+              weight: cs.weight || merged[cs.exercise_id]?.weight,
+              clientNotes: cs.notes || merged[cs.exercise_id]?.clientNotes,
+            };
+          }
+          setOverrides(merged);
         }
-        setOverrides(merged);
       } finally { setLoading(false); }
     })();
-  }, [code]);
+  }, [code, isWarmup]);
 
   // Persist overrides locally + push to backend (debounced per exercise).
   const savedRef = useRef(false);
@@ -173,7 +192,7 @@ export default function ActiveSession() {
 
   useEffect(() => () => { if (tickRef.current) clearInterval(tickRef.current); }, []);
 
-  const session = scheda?.sessions[parseInt(day || "0", 10)];
+  const session = isWarmup ? warmupSession : scheda?.sessions[parseInt(day || "0", 10)];
 
   const startRest = (seconds: number) => {
     if (tickRef.current) clearInterval(tickRef.current);
@@ -203,6 +222,11 @@ export default function ActiveSession() {
   };
 
   const finishSession = async () => {
+    if (isWarmup) {
+      // Riscaldamento non registra un ingresso: si chiude e basta.
+      router.back();
+      return;
+    }
     setCheckingIn(true);
     try {
       await api.post("/checkins", { code, session_id: session?.id, session_name: session?.name });
@@ -210,7 +234,7 @@ export default function ActiveSession() {
     } finally { setCheckingIn(false); }
   };
 
-  if (loading || !scheda || !session) {
+  if (loading || !session) {
     return (
       <View style={styles.root}>
         <Header title="Sessione" back />
@@ -339,7 +363,12 @@ export default function ActiveSession() {
         })}
       </ScrollView>
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
-        <Button testID="finish-session-button" label="Termina & Registra" onPress={finishSession} loading={checkingIn} />
+        <Button
+          testID="finish-session-button"
+          label={isWarmup ? "Fatto" : "Termina & Registra"}
+          onPress={finishSession}
+          loading={checkingIn}
+        />
       </View>
 
       <Modal visible={restOpen} animationType="fade" onRequestClose={cancelRest}>

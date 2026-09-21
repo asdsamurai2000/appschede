@@ -74,3 +74,8 @@ export type ClientStateHistory = {
   weight: string;
   timestamp: string;
 };
+
+export type WarmupTemplate = {
+  exercises: ExerciseItem[];
+  updated_at: string;
+};

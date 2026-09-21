@@ -5,7 +5,7 @@ import LucideIcon from "@react-native-vector-icons/lucide";
 
 import { makeStyles, useTheme } from "@/src/theme";
 import { Header } from "@/src/components/header";
-import { api, type Scheda, type CheckInStats, type CheckIn } from "@/src/api";
+import { api, type Scheda, type CheckInStats, type CheckIn, type WarmupTemplate } from "@/src/api";
 import { clearLastCode } from "@/src/state";
 
 const useStyles = makeStyles((c) => ({
@@ -56,6 +56,7 @@ export default function ClientDashboard() {
   const { code } = useLocalSearchParams<{ code: string }>();
 
   const [scheda, setScheda] = useState<Scheda | null>(null);
+  const [warmup, setWarmup] = useState<WarmupTemplate | null>(null);
   const [stats, setStats] = useState<CheckInStats | null>(null);
   const [history, setHistory] = useState<CheckIn[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,12 +64,13 @@ export default function ClientDashboard() {
 
   const load = useCallback(async () => {
     try {
-      const [s, st, h] = await Promise.all([
+      const [s, w, st, h] = await Promise.all([
         api.get<Scheda>(`/schede/${code}`),
+        api.get<WarmupTemplate>(`/warmup`).catch(() => ({ data: { exercises: [], updated_at: "" } as WarmupTemplate })),
         api.get<CheckInStats>(`/checkins/${code}/stats`),
         api.get<CheckIn[]>(`/checkins/${code}?limit=8`),
       ]);
-      setScheda(s.data); setStats(st.data); setHistory(h.data);
+      setScheda(s.data); setWarmup(w.data); setStats(st.data); setHistory(h.data);
     } finally {
       setLoading(false); setRefreshing(false);
     }
@@ -135,6 +137,22 @@ export default function ClientDashboard() {
         </View>
 
         <Text style={styles.sectionLabel}>Le Tue Sessioni</Text>
+        {warmup && warmup.exercises.length > 0 ? (
+          <Pressable
+            testID="open-session-warmup"
+            style={[styles.sessionRow, { borderColor: colors.brandPrimary }]}
+            onPress={() => router.push({ pathname: "/client/[code]/session/[day]", params: { code: code!, day: "warmup" } })}
+          >
+            <View style={[styles.sessionNum, { backgroundColor: colors.brandPrimary }]}>
+              <LucideIcon name="flame" size={20} color={colors.onBrandPrimary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sessionName} numberOfLines={1}>Riscaldamento</Text>
+              <Text style={styles.sessionMeta}>{warmup.exercises.length} esercizi · sempre attivo</Text>
+            </View>
+            <LucideIcon name="chevron-right" size={22} color={colors.onSurface} />
+          </Pressable>
+        ) : null}
         {scheda.sessions.map((s, idx) => (
           <Pressable
             key={s.id}

@@ -126,6 +126,15 @@ class ClientStateHistory(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class WarmupTemplate(BaseModel):
+    exercises: List[ExerciseItem] = []
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class WarmupUpdate(BaseModel):
+    exercises: List[ExerciseItem]
+
+
 class ExerciseCreate(BaseModel):
     name: str
     muscle_group: str
@@ -302,8 +311,19 @@ async def delete_checkin(checkin_id: str):
     return {"ok": True}
 
 
+DEFAULT_WARMUP = [
+    ("Stretching posizione squadra", "Seduto con schiena dritta, piante dei piedi unite, ginocchia verso il pavimento"),
+    ("Gambe divaricate", "Seduto con gambe aperte, allungati in avanti mantenendo la schiena dritta"),
+    ("Posizione dell'ostacolista", "Una gamba tesa, l'altra piegata dietro, allungati sulla gamba tesa"),
+    ("Posizione del cobra", "Sdraiato prono, spingi il busto in alto con le braccia mantenendo il bacino a terra"),
+    ("Posizione del tavolo", "A quattro zampe, spingi bacino e petto verso l'alto"),
+    ("Posizione del gatto", "A quattro zampe, alterna schiena curva verso l'alto e schiena inarcata"),
+    ("Posizione del bambino", "In ginocchio, siediti sui talloni e allunga le braccia in avanti a terra"),
+]
+
+
 # Exercise library
-DEFAULT_EXERCISES = [
+DEFAULT_EXERCISES_LIBRARY = [
     ("Panca Piana", "Pettorali", "Esercizio fondamentale per pettorali, spalle anteriori e tricipiti. Sdraiati sulla panca, presa poco più larga delle spalle."),
     ("Squat", "Gambe", "Re degli esercizi. Bilanciere sui trapezi, scendi mantenendo la schiena dritta finché le cosce sono parallele al pavimento."),
     ("Stacco da Terra", "Schiena", "Esercizio completo per catena posteriore. Schiena neutra, spingi con i talloni, estendi anche e ginocchia insieme."),
@@ -376,13 +396,38 @@ async def client_state_history(code: str, exercise_id: str, limit: int = 30):
     return [ClientStateHistory(**d) for d in docs]
 
 
+# Warmup template (single shared document — applied at the top of every client scheda)
+@api_router.get("/warmup", response_model=WarmupTemplate)
+async def get_warmup():
+    doc = await db.warmup.find_one({}, {"_id": 0})
+    if not doc:
+        exs = [ExerciseItem(name=n, sets=1, reps="30s", weight="", rest_seconds=0, notes=d).model_dump()
+               for (n, d) in DEFAULT_WARMUP]
+        template = WarmupTemplate(exercises=[ExerciseItem(**e) for e in exs])
+        await db.warmup.insert_one(template.model_dump())
+        return template
+    return WarmupTemplate(**doc)
+
+
+@api_router.put("/warmup", response_model=WarmupTemplate)
+async def put_warmup(payload: WarmupUpdate):
+    template = WarmupTemplate(exercises=payload.exercises)
+    await db.warmup.update_one({}, {"$set": template.model_dump()}, upsert=True)
+    return template
+
+
 @app.on_event("startup")
 async def seed():
     count = await db.exercises.count_documents({})
     if count == 0:
         seed_docs = [Exercise(name=n, muscle_group=m, description=d).model_dump()
-                     for (n, m, d) in DEFAULT_EXERCISES]
+                     for (n, m, d) in DEFAULT_EXERCISES_LIBRARY]
         await db.exercises.insert_many(seed_docs)
+    # Seed warmup template if missing
+    if not await db.warmup.find_one({}):
+        exs = [ExerciseItem(name=n, sets=1, reps="30s", weight="", rest_seconds=0, notes=d).model_dump()
+               for (n, d) in DEFAULT_WARMUP]
+        await db.warmup.insert_one(WarmupTemplate(exercises=[ExerciseItem(**e) for e in exs]).model_dump())
 
 
 app.include_router(api_router)
