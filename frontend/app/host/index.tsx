@@ -67,6 +67,24 @@ const useStyles = makeStyles((c) => ({
     borderTopColor: c.borderStrong,
     backgroundColor: c.surface,
   },
+  libraryTile: {
+    marginTop: 24,
+    borderWidth: 2,
+    borderColor: c.borderStrong,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: c.surface,
+  },
+  libraryTileLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
+  libraryTileTitle: {
+    color: c.onSurface, fontSize: 14, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase",
+  },
+  libraryTileSub: {
+    color: c.muted, fontSize: 11, letterSpacing: 1, marginTop: 2, textTransform: "uppercase",
+  },
 }));
 
 export default function HostDashboard() {
@@ -97,14 +115,24 @@ export default function HostDashboard() {
         title="Host"
         subtitle="Le tue schede"
         right={
-          <Pressable
-            testID="host-logout-button"
-            onPress={async () => { await clearHostVerified(); setIsHost(false); router.replace("/"); }}
-            style={{ padding: 8 }}
-            hitSlop={8}
-          >
-            <LucideIcon name="log-out" size={20} color={colors.onSurface} />
-          </Pressable>
+          <View style={{ flexDirection: "row", gap: 4 }}>
+            <Pressable
+              testID="host-open-library"
+              onPress={() => router.push("/library")}
+              style={{ padding: 8 }}
+              hitSlop={8}
+            >
+              <LucideIcon name="library" size={20} color={colors.onSurface} />
+            </Pressable>
+            <Pressable
+              testID="host-logout-button"
+              onPress={async () => { await clearHostVerified(); setIsHost(false); router.replace("/"); }}
+              style={{ padding: 8 }}
+              hitSlop={8}
+            >
+              <LucideIcon name="log-out" size={20} color={colors.onSurface} />
+            </Pressable>
+          </View>
         }
       />
       <FlatList
@@ -132,6 +160,20 @@ export default function HostDashboard() {
                 </Text>
               </View>
             </View>
+            <Pressable
+              testID="host-library-tile"
+              onPress={() => router.push("/library")}
+              style={styles.libraryTile}
+            >
+              <View style={styles.libraryTileLeft}>
+                <LucideIcon name="library" size={22} color={colors.brandPrimary} />
+                <View>
+                  <Text style={styles.libraryTileTitle}>Libreria Esercizi</Text>
+                  <Text style={styles.libraryTileSub}>Aggiungi e gestisci gli esercizi</Text>
+                </View>
+              </View>
+              <LucideIcon name="chevron-right" size={22} color={colors.onSurface} />
+            </Pressable>
             <Text style={styles.sectionLabel}>Schede Attive</Text>
           </View>
         }
