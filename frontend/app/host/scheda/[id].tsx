@@ -9,7 +9,7 @@ import LucideIcon from "@react-native-vector-icons/lucide";
 import { makeStyles, useTheme } from "@/src/theme";
 import { Header } from "@/src/components/header";
 import { Button } from "@/src/components/ui";
-import { api, type Scheda, type SessionItem, type ExerciseItem, type LibraryExercise, type ClientState, type ClientStateHistory } from "@/src/api";
+import { api, type Scheda, type SessionItem, type ExerciseItem, type LibraryExercise, type ClientState, type ClientStateHistory, isPaidThisMonth } from "@/src/api";
 
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
@@ -113,6 +113,16 @@ const useStyles = makeStyles((c) => ({
   historyWeight: { color: c.onSurface, fontWeight: "800", fontSize: 22, marginTop: 4, letterSpacing: -0.5 },
   historySession: { color: c.brandPrimary, fontSize: 11, letterSpacing: 2, marginTop: 2, textTransform: "uppercase" },
   historyNote: { color: c.onSurfaceSecondary, fontSize: 13, marginTop: 6, lineHeight: 18 },
+  paidRow: {
+    marginTop: 20, borderWidth: 2, paddingHorizontal: 14, paddingVertical: 12,
+    flexDirection: "row", alignItems: "center", gap: 12,
+  },
+  paidRowTitle: {
+    fontSize: 14, fontWeight: "800", letterSpacing: 2, textTransform: "uppercase",
+  },
+  paidRowSub: {
+    fontSize: 10, letterSpacing: 1, marginTop: 2, textTransform: "uppercase",
+  },
 }));
 
 function newExercise(name = ""): ExerciseItem {
@@ -142,6 +152,8 @@ export default function SchedaEditor() {
   const [historyFor, setHistoryFor] = useState<{ exId: string; exName: string } | null>(null);
   const [historyItems, setHistoryItems] = useState<ClientStateHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [paidMonth, setPaidMonth] = useState<string | null>(null);
+  const [togglingPaid, setTogglingPaid] = useState(false);
 
   const openHistory = async (exId: string, exName: string) => {
     setHistoryFor({ exId, exName });
@@ -162,6 +174,7 @@ export default function SchedaEditor() {
         setName(r.data.name);
         setClientName(r.data.client_name);
         setCode(r.data.code);
+        setPaidMonth(r.data.paid_month ?? null);
         const cs = await api.get<ClientState[]>(`/schede/${id}/client-state`).catch(() => ({ data: [] as ClientState[] }));
         const map: Record<string, ClientState> = {};
         cs.data.forEach((c) => { map[c.exercise_id] = c; });
@@ -210,6 +223,20 @@ export default function SchedaEditor() {
     updateSession(sIdx, {
       exercises: sessions[sIdx].exercises.map((x, i) => (i === eIdx ? { ...x, ...patch } : x)),
     });
+
+  const togglePaid = async () => {
+    if (!code) return;
+    const nextPaid = !isPaidThisMonth(paidMonth);
+    setTogglingPaid(true);
+    try {
+      const r = await api.put<Scheda>(`/schede/${code}/paid`, { paid: nextPaid });
+      setPaidMonth(r.data.paid_month ?? null);
+    } catch {
+      Alert.alert("Errore", "Impossibile aggiornare lo stato pagamento");
+    } finally {
+      setTogglingPaid(false);
+    }
+  };
 
   const save = async () => {
     if (!name.trim() || !clientName.trim()) {
@@ -311,6 +338,33 @@ export default function SchedaEditor() {
           placeholderTextColor={colors.muted}
           style={styles.input}
         />
+
+        {!isNew ? (() => {
+          const paid = isPaidThisMonth(paidMonth);
+          return (
+            <Pressable
+              testID="toggle-paid-button"
+              onPress={togglePaid}
+              disabled={togglingPaid}
+              style={[styles.paidRow, { backgroundColor: paid ? colors.success : colors.brandTertiary, borderColor: paid ? colors.success : colors.brandPrimary }]}
+            >
+              <LucideIcon name="flag" size={18} color={paid ? colors.onSuccess : colors.brandPrimary} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.paidRowTitle, { color: paid ? colors.onSuccess : colors.onBrandTertiary }]}>
+                  {paid ? "Mensile pagato" : "Mensile da pagare"}
+                </Text>
+                <Text style={[styles.paidRowSub, { color: paid ? colors.onSuccess : colors.onBrandTertiary }]}>
+                  {paid ? "Tocca per revocare il pagamento" : "Tocca per registrare il pagamento del mese"}
+                </Text>
+              </View>
+              {togglingPaid ? (
+                <ActivityIndicator color={paid ? colors.onSuccess : colors.brandPrimary} />
+              ) : (
+                <LucideIcon name={paid ? "check-circle" : "circle"} size={20} color={paid ? colors.onSuccess : colors.brandPrimary} />
+              )}
+            </Pressable>
+          );
+        })() : null}
 
         <Text style={styles.label}>Sessioni ({sessions.length}/5)</Text>
         {sessions.map((s, sIdx) => (

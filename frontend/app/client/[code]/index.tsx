@@ -5,7 +5,7 @@ import LucideIcon from "@react-native-vector-icons/lucide";
 
 import { makeStyles, useTheme } from "@/src/theme";
 import { Header } from "@/src/components/header";
-import { api, type Scheda, type CheckInStats, type CheckIn, type WarmupTemplate } from "@/src/api";
+import { api, type Scheda, type CheckInStats, type CheckIn, type WarmupTemplate, isPaidThisMonth } from "@/src/api";
 import { clearLastCode } from "@/src/state";
 
 const useStyles = makeStyles((c) => ({
@@ -42,6 +42,14 @@ const useStyles = makeStyles((c) => ({
   footer: { paddingHorizontal: 20, paddingTop: 12, gap: 8, borderTopWidth: 2, borderTopColor: c.borderStrong, backgroundColor: c.surface },
   historyItem: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.divider, flexDirection: "row", justifyContent: "space-between" },
   historyText: { color: c.onSurface, fontSize: 13 },
+  paidPill: {
+    marginTop: 16, alignSelf: "flex-start", borderWidth: 2,
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 10, paddingVertical: 6,
+  },
+  paidPillText: {
+    fontSize: 12, fontWeight: "800", letterSpacing: 2, textTransform: "uppercase",
+  },
 }));
 
 function fmtDate(iso: string) {
@@ -112,6 +120,21 @@ export default function ClientDashboard() {
           <Text style={styles.bigLabel}>Ingressi Questa Settimana</Text>
           <Text style={styles.bigNumber} testID="week-count">{stats.week}</Text>
         </View>
+
+        {(() => {
+          const paid = isPaidThisMonth(scheda.paid_month);
+          return (
+            <View
+              testID="client-paid-status"
+              style={[styles.paidPill, { backgroundColor: paid ? colors.success : colors.brandTertiary, borderColor: paid ? colors.success : colors.brandPrimary }]}
+            >
+              <LucideIcon name="flag" size={14} color={paid ? colors.onSuccess : colors.brandPrimary} />
+              <Text style={[styles.paidPillText, { color: paid ? colors.onSuccess : colors.onBrandTertiary }]}>
+                {paid ? "Mensile pagato" : "Mensile da pagare"}
+              </Text>
+            </View>
+          );
+        })()}
 
         <View style={styles.statsGrid}>
           <View style={[styles.statCell, styles.statCellDivider]}>

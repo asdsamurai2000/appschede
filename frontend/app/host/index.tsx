@@ -7,7 +7,7 @@ import LucideIcon from "@react-native-vector-icons/lucide";
 import { makeStyles, useTheme } from "@/src/theme";
 import { Header } from "@/src/components/header";
 import { Button } from "@/src/components/ui";
-import { api, type Scheda } from "@/src/api";
+import { api, type Scheda, isPaidThisMonth } from "@/src/api";
 import { setIsHost, clearHostVerified } from "@/src/state";
 
 const useStyles = makeStyles((c) => ({
@@ -47,9 +47,16 @@ const useStyles = makeStyles((c) => ({
     paddingVertical: 6,
   },
   codeText: { color: c.onBrandPrimary, fontWeight: "800", letterSpacing: 2, fontSize: 13 },
-  metaRow: { flexDirection: "row", gap: 16, marginTop: 12 },
+  metaRow: { flexDirection: "row", gap: 12, marginTop: 12, alignItems: "center", flexWrap: "wrap" },
   metaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   metaText: { color: c.onSurface, fontSize: 12, letterSpacing: 1 },
+  paidFlag: {
+    marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 8, paddingVertical: 4,
+  },
+  paidFlagText: {
+    fontSize: 11, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase",
+  },
   emptyBox: {
     borderWidth: 2,
     borderColor: c.borderStrong,
@@ -191,7 +198,9 @@ export default function HostDashboard() {
             <Text style={styles.sectionLabel}>Schede Attive</Text>
           </View>
         }
-        renderItem={({ item }) => (
+        renderItem={({ item }) => {
+          const paid = isPaidThisMonth(item.paid_month);
+          return (
           <Pressable
             testID={`scheda-card-${item.code}`}
             style={styles.card}
@@ -217,9 +226,16 @@ export default function HostDashboard() {
                   {item.sessions.reduce((a, s) => a + s.exercises.length, 0)} esercizi
                 </Text>
               </View>
+              <View style={[styles.paidFlag, { backgroundColor: paid ? colors.success : colors.brandPrimary }]} testID={`paid-flag-${item.code}`}>
+                <LucideIcon name="flag" size={12} color={paid ? colors.onSuccess : colors.onBrandPrimary} />
+                <Text style={[styles.paidFlagText, { color: paid ? colors.onSuccess : colors.onBrandPrimary }]}>
+                  {paid ? "Pagato" : "Da pagare"}
+                </Text>
+              </View>
             </View>
           </Pressable>
-        )}
+          );
+        }}
         ListEmptyComponent={
           loading ? (
             <ActivityIndicator style={{ marginTop: 48 }} color={colors.brandPrimary} />

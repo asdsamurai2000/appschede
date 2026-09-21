@@ -29,9 +29,17 @@ export type Scheda = {
   name: string;
   client_name: string;
   sessions: SessionItem[];
+  paid_month?: string | null;
   created_at: string;
   updated_at: string;
 };
+
+export function isPaidThisMonth(paidMonth?: string | null): boolean {
+  if (!paidMonth) return false;
+  const now = new Date();
+  const cur = `${now.getFullYear().toString().padStart(4, "0")}-${(now.getMonth() + 1).toString().padStart(2, "0")}`;
+  return paidMonth === cur;
+}
 
 export type CheckIn = {
   id: string;

@@ -65,6 +65,7 @@ class Scheda(BaseModel):
     name: str                 # nome scheda
     client_name: str          # nome cliente
     sessions: List[SessionItem] = []
+    paid_month: Optional[str] = None   # "YYYY-MM" ultimo mese pagato
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -79,6 +80,12 @@ class SchedaUpdate(BaseModel):
     name: Optional[str] = None
     client_name: Optional[str] = None
     sessions: Optional[List[SessionItem]] = None
+    paid_month: Optional[str] = None
+
+
+class SchedaPaidUpdate(BaseModel):
+    # True → segna pagato per il mese corrente. False → azzera.
+    paid: bool
 
 
 class CheckIn(BaseModel):
@@ -231,6 +238,22 @@ async def delete_scheda(code: str):
     await db.client_state.delete_many({"code": code})
     await db.client_state_history.delete_many({"code": code})
     return {"ok": True}
+
+
+@api_router.put("/schede/{code}/paid", response_model=Scheda)
+async def set_paid(code: str, payload: SchedaPaidUpdate):
+    doc = await db.schede.find_one({"code": code}, {"_id": 0, "code": 1})
+    if not doc:
+        raise HTTPException(404, "Scheda non trovata")
+    now = datetime.now(timezone.utc)
+    current_month = f"{now.year:04d}-{now.month:02d}"
+    new_val = current_month if payload.paid else None
+    await db.schede.update_one(
+        {"code": code},
+        {"$set": {"paid_month": new_val, "updated_at": now}},
+    )
+    doc = await db.schede.find_one({"code": code}, {"_id": 0})
+    return Scheda(**doc)
 
 
 # Check-ins
