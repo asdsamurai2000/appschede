@@ -123,6 +123,18 @@ const useStyles = makeStyles((c) => ({
   paidRowSub: {
     fontSize: 10, letterSpacing: 1, marginTop: 2, textTransform: "uppercase",
   },
+  ingressiRow: {
+    marginTop: -2, borderWidth: 2, borderColor: c.borderStrong,
+    paddingHorizontal: 14, paddingVertical: 12,
+    flexDirection: "row", alignItems: "center", gap: 12,
+    backgroundColor: c.surface,
+  },
+  ingressiTitle: {
+    color: c.onSurface, fontSize: 14, fontWeight: "800", letterSpacing: 2, textTransform: "uppercase",
+  },
+  ingressiSub: {
+    color: c.muted, fontSize: 10, letterSpacing: 1, marginTop: 2, textTransform: "uppercase",
+  },
 }));
 
 function newExercise(name = ""): ExerciseItem {
@@ -342,27 +354,41 @@ export default function SchedaEditor() {
         {!isNew ? (() => {
           const paid = isPaidThisMonth(paidMonth);
           return (
-            <Pressable
-              testID="toggle-paid-button"
-              onPress={togglePaid}
-              disabled={togglingPaid}
-              style={[styles.paidRow, { backgroundColor: paid ? colors.success : colors.brandTertiary, borderColor: paid ? colors.success : colors.brandPrimary }]}
-            >
-              <LucideIcon name="flag" size={18} color={paid ? colors.onSuccess : colors.brandPrimary} />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.paidRowTitle, { color: paid ? colors.onSuccess : colors.onBrandTertiary }]}>
-                  {paid ? "Mensile pagato" : "Mensile da pagare"}
-                </Text>
-                <Text style={[styles.paidRowSub, { color: paid ? colors.onSuccess : colors.onBrandTertiary }]}>
-                  {paid ? "Tocca per revocare il pagamento" : "Tocca per registrare il pagamento del mese"}
-                </Text>
-              </View>
-              {togglingPaid ? (
-                <ActivityIndicator color={paid ? colors.onSuccess : colors.brandPrimary} />
-              ) : (
-                <LucideIcon name={paid ? "check-circle" : "circle"} size={20} color={paid ? colors.onSuccess : colors.brandPrimary} />
-              )}
-            </Pressable>
+            <>
+              <Pressable
+                testID="toggle-paid-button"
+                onPress={togglePaid}
+                disabled={togglingPaid}
+                style={[styles.paidRow, { backgroundColor: paid ? colors.success : colors.brandTertiary, borderColor: paid ? colors.success : colors.brandPrimary }]}
+              >
+                <LucideIcon name="flag" size={18} color={paid ? colors.onSuccess : colors.brandPrimary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.paidRowTitle, { color: paid ? colors.onSuccess : colors.onBrandTertiary }]}>
+                    {paid ? "Mensile pagato" : "Mensile da pagare"}
+                  </Text>
+                  <Text style={[styles.paidRowSub, { color: paid ? colors.onSuccess : colors.onBrandTertiary }]}>
+                    {paid ? "Tocca per revocare il pagamento" : "Tocca per registrare il pagamento del mese"}
+                  </Text>
+                </View>
+                {togglingPaid ? (
+                  <ActivityIndicator color={paid ? colors.onSuccess : colors.brandPrimary} />
+                ) : (
+                  <LucideIcon name={paid ? "check-circle" : "circle"} size={20} color={paid ? colors.onSuccess : colors.brandPrimary} />
+                )}
+              </Pressable>
+              <Pressable
+                testID="open-ingressi-button"
+                onPress={() => code && router.push({ pathname: "/host/ingressi/[code]", params: { code } })}
+                style={styles.ingressiRow}
+              >
+                <LucideIcon name="calendar-check" size={18} color={colors.onSurface} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.ingressiTitle}>Ingressi</Text>
+                  <Text style={styles.ingressiSub}>Statistiche e storico presenze</Text>
+                </View>
+                <LucideIcon name="chevron-right" size={20} color={colors.onSurface} />
+              </Pressable>
+            </>
           );
         })() : null}
 
