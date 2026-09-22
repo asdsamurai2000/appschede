@@ -363,7 +363,7 @@ export default function ActiveSession() {
                 };
                 return (
                   <View style={styles.weightBlock}>
-                    <Text style={styles.metaLabel}>Ripetizioni fatte</Text>
+                    <Text style={styles.metaLabel}>Ripetizioni Massime Raggiunta (RM)</Text>
                     <View style={styles.weightRow}>
                       <Pressable
                         testID={`reps-minus-${ex.id}`}
