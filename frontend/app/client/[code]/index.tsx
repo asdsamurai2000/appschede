@@ -116,9 +116,19 @@ export default function ClientDashboard() {
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brandPrimary} />
         }
       >
-        <View style={{ marginTop: 16 }}>
-          <Text style={styles.bigLabel}>Ingressi Questa Settimana</Text>
-          <Text style={styles.bigNumber} testID="week-count">{stats.week}</Text>
+        <View style={styles.statsGrid}>
+          <View style={[styles.statCell, styles.statCellDivider]}>
+            <Text style={styles.statLabel}>Settimana</Text>
+            <Text style={styles.statValue} testID="week-count">{stats.week}</Text>
+          </View>
+          <View style={[styles.statCell, styles.statCellDivider]}>
+            <Text style={styles.statLabel}>Mese</Text>
+            <Text style={styles.statValue} testID="month-count">{stats.month}</Text>
+          </View>
+          <View style={styles.statCell}>
+            <Text style={styles.statLabel}>Anno</Text>
+            <Text style={styles.statValue}>{stats.year}</Text>
+          </View>
         </View>
 
         {(() => {
@@ -135,21 +145,6 @@ export default function ClientDashboard() {
             </View>
           );
         })()}
-
-        <View style={styles.statsGrid}>
-          <View style={[styles.statCell, styles.statCellDivider]}>
-            <Text style={styles.statLabel}>Mese</Text>
-            <Text style={styles.statValue} testID="month-count">{stats.month}</Text>
-          </View>
-          <View style={[styles.statCell, styles.statCellDivider]}>
-            <Text style={styles.statLabel}>Anno</Text>
-            <Text style={styles.statValue}>{stats.year}</Text>
-          </View>
-          <View style={styles.statCell}>
-            <Text style={styles.statLabel}>Totale</Text>
-            <Text style={styles.statValue}>{stats.total}</Text>
-          </View>
-        </View>
 
         <Text style={styles.sectionLabel}>Ultime 12 Settimane</Text>
         <View style={styles.chartRow}>

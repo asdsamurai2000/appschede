@@ -86,23 +86,18 @@ export default function HostIngressi() {
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brandPrimary} />
         }
       >
-        <View style={{ marginTop: 16 }}>
-          <Text style={styles.bigLabel}>Ingressi Questa Settimana</Text>
-          <Text style={styles.bigNumber} testID="host-week-count">{stats.week}</Text>
-        </View>
-
         <View style={styles.statsGrid}>
+          <View style={[styles.statCell, styles.statCellDivider]}>
+            <Text style={styles.statLabel}>Settimana</Text>
+            <Text style={styles.statValue} testID="host-week-count">{stats.week}</Text>
+          </View>
           <View style={[styles.statCell, styles.statCellDivider]}>
             <Text style={styles.statLabel}>Mese</Text>
             <Text style={styles.statValue}>{stats.month}</Text>
           </View>
-          <View style={[styles.statCell, styles.statCellDivider]}>
+          <View style={styles.statCell}>
             <Text style={styles.statLabel}>Anno</Text>
             <Text style={styles.statValue}>{stats.year}</Text>
-          </View>
-          <View style={styles.statCell}>
-            <Text style={styles.statLabel}>Totale</Text>
-            <Text style={styles.statValue}>{stats.total}</Text>
           </View>
         </View>
 
