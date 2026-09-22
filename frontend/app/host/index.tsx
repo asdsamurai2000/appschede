@@ -124,24 +124,14 @@ export default function HostDashboard() {
         title="Host"
         subtitle="Le tue schede"
         right={
-          <View style={{ flexDirection: "row", gap: 4 }}>
-            <Pressable
-              testID="host-open-library"
-              onPress={() => router.push("/library")}
-              style={{ padding: 8 }}
-              hitSlop={8}
-            >
-              <LucideIcon name="library" size={20} color={colors.onSurface} />
-            </Pressable>
-            <Pressable
-              testID="host-logout-button"
-              onPress={async () => { await clearHostVerified(); setIsHost(false); router.replace("/"); }}
-              style={{ padding: 8 }}
-              hitSlop={8}
-            >
-              <LucideIcon name="log-out" size={20} color={colors.onSurface} />
-            </Pressable>
-          </View>
+          <Pressable
+            testID="host-logout-button"
+            onPress={async () => { await clearHostVerified(); setIsHost(false); router.replace("/"); }}
+            style={{ padding: 8 }}
+            hitSlop={8}
+          >
+            <LucideIcon name="log-out" size={20} color={colors.onSurface} />
+          </Pressable>
         }
       />
       <FlatList
