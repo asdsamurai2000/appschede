@@ -9,6 +9,7 @@ import { Header } from "@/src/components/header";
 import { Button } from "@/src/components/ui";
 import { api, type Scheda, isPaidThisMonth } from "@/src/api";
 import { setIsHost, clearHostVerified } from "@/src/state";
+import { clearHostToken } from "@/src/authStorage";
 
 const useStyles = makeStyles((c) => ({
   root: { flex: 1, backgroundColor: c.surface },
@@ -135,7 +136,7 @@ export default function HostDashboard() {
             </Pressable>
             <Pressable
               testID="host-logout-button"
-              onPress={async () => { await clearHostVerified(); setIsHost(false); router.replace("/"); }}
+              onPress={async () => { await clearHostToken(); await clearHostVerified(); setIsHost(false); router.replace("/"); }}
               style={{ padding: 8 }}
               hitSlop={8}
             >

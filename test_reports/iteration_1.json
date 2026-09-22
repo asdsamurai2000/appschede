@@ -1,0 +1,40 @@
+{
+  "summary": "SEC-001 JWT auth backend testing complete. Rewrote /app/backend/tests/backend_test.py as a full pytest suite (37 tests) covering: /host/verify happy path (returns access_token, token_type='bearer', expires_in=604800), wrong-password 401 (no token leaked), every host-only endpoint returning 401 without Authorization (GET/POST/PUT/DELETE /api/schede, PUT /api/schede/{code}/paid, POST/DELETE /api/exercises, PUT /api/warmup, DELETE /api/checkins/{id}), the same endpoints succeeding with a valid Bearer token (including Create→GET persistence), token tampering & negative cases (garbage token, tampered signature, wrong-secret token, expired token, missing 'role' claim, wrong 'role' claim, wrong 'sub' claim, non-Bearer scheme), all public client endpoints still working WITHOUT auth (GET /api/schede/{code}, POST/GET /api/checkins, /stats, client-state GET/PUT/history, GET /api/warmup, /exercises, /muscle-groups), and rate-limit (5 wrong attempts → 401 each, 6th within 60s → 429). All 37 tests PASS (100%). No backend issues found for SEC-001.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "SEC-001 backend is verified. Next: update frontend (/app/frontend/src/api.ts + authStorage.ts + host-unlock.tsx) to (a) send Authorization: Bearer <token> on every host-only call, (b) persist access_token alongside the existing 'verified' flag, (c) handle 401 by clearing the token and redirecting to /host-unlock. This is not tested here (backend-only iteration)."
+  ],
+  "critical_code_review_comments": [
+    "server.py — rate limit is in-memory per-process; behind multi-worker uvicorn this is bypassable. Consider Redis / shared store for production. Not a SEC-001 blocker.",
+    "server.py — HOST_PASSWORD_HASH validation (line 33) is correctly enforced at import time; JWT_SECRET length check (>=32) is enforced. Good.",
+    "server.py — jwt.decode uses options={'require': ['exp','iat','sub','role']} which correctly rejects tokens missing any of these claims (verified by test_missing_role_claim).",
+    "server.py — _record_attempt is only called on failed logins; successful logins do not consume the rate-limit budget. Correct behavior.",
+    "server.py file is ~560 lines — acceptable but approaching the 700-line threshold. Consider splitting auth/rate-limit into a separate module if it grows further.",
+    "server.py uses deprecated @app.on_event('startup' / 'shutdown') hooks. FastAPI recommends the lifespan context manager. Not a SEC-001 issue but worth cleaning up."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py"
+  ],
+  "success_rate": {
+    "backend": "100% (37/37)",
+    "frontend": "not tested (backend-only iteration)"
+  },
+  "seed_data_creation": "TEST_Scheda (client_name=TEST_Client, one session 'Giorno A - Push' with Panca Piana) is created via authenticated POST /api/schede in the module-scoped fixture and torn down at end of run. No lingering test data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "SEC-001 JWT backend is fully green. The rate-limit test (TestZRateLimit) sleeps 61s at the start to isolate its window; total suite runtime ~66s. JWT_SECRET is read from /app/backend/.env at test time to forge negative-case tokens. If the main agent wires the frontend to send Bearer tokens, next iteration should test the host-unlock UI flow: enter password → receive token → token stored → subsequent host screens (schede list, exercise editor, warmup editor, payment toggle) all work → logout clears the token.",
+  "rca_of_issue": "N/A — no bugs found."
+}

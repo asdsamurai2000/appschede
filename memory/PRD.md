@@ -29,11 +29,13 @@ Mobile app (React Native / Expo) per creare e distribuire schede di allenamento 
 ## Design
 "5 Brutalist Mobile" — bordi 2pt neri, radius 0, palette bianco/rosso ↔ nero/rosso (#E52020 light / #FF3333 dark), typografia system con monospace per le metriche numeriche.
 
-## Auth (v1.1)
+## Auth (v1.2 — JWT server-side, SEC-001 fix)
 - Host mode è protetta da **password server-side** (bcrypt-hashed in `HOST_PASSWORD_HASH`).
-- Endpoint `POST /api/host/verify` verifica la password con `bcrypt.checkpw` in threadpool + rate limit in-memory 5/min per IP.
-- Frontend: schermata `/host-unlock` con `TextInput secureTextEntry`, occhio per rivelare, gestione errori (401 / 429). Flag `gymcode.host.verified.v1` in SecureStore/AsyncStorage.
-- Password default: `gymhost2026` — cambiabile aggiornando il .env e riavviando il backend.
+- Endpoint `POST /api/host/verify` verifica la password con `bcrypt.checkpw` + rate limit 5/min per IP e in caso di successo restituisce `access_token` (JWT HS256, `role=host`, scadenza **7 giorni**) firmato con `JWT_SECRET` (32+ char, in backend/.env).
+- Le rotte **host-only** (`GET/POST /schede`, `PUT/DELETE /schede/{code}`, `PUT /schede/{code}/paid`, `POST/DELETE /exercises`, `PUT /warmup`, `DELETE /checkins/{id}`) sono protette da `Depends(require_host)` e restituiscono **401** senza token valido.
+- Le rotte cliente (accesso con codice a 6 cifre) restano pubbliche.
+- Frontend: token salvato in `expo-secure-store` (web fallback AsyncStorage) via `src/authStorage.ts`. `src/api.ts` allega automaticamente `Authorization: Bearer <token>` e su 401 pulisce il token + redirect a `/host-unlock` (handler registrato in `app/_layout.tsx`). Logout pulisce sia flag verified che token.
+- Password default host: `gymhost2026`.
 
 ## Non-Goals (v1)
 - Autenticazione / registrazione

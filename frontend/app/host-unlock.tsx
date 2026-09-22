@@ -9,6 +9,7 @@ import LucideIcon from "@react-native-vector-icons/lucide";
 import { makeStyles, useTheme } from "@/src/theme";
 import { Button } from "@/src/components/ui";
 import { api } from "@/src/api";
+import { setHostToken } from "@/src/authStorage";
 import { setIsHost, setHostVerified } from "@/src/state";
 
 const useStyles = makeStyles((c) => ({
@@ -69,7 +70,10 @@ export default function HostUnlock() {
     if (!password) return;
     setLoading(true); setError(null);
     try {
-      await api.post("/host/verify", { password });
+      const r = await api.post("/host/verify", { password });
+      const token: string | undefined = r?.data?.access_token;
+      if (!token) throw new Error("Token mancante nella risposta");
+      await setHostToken(token);
       await setHostVerified();
       setIsHost(true);
       router.replace("/host");

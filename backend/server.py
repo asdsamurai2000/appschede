@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
@@ -9,9 +10,11 @@ import string
 import logging
 import time
 import bcrypt
+import jwt
+from jwt import InvalidTokenError
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 
@@ -29,6 +32,49 @@ api_router = APIRouter(prefix="/api")
 HOST_PASSWORD_HASH = os.environ.get("HOST_PASSWORD_HASH", "").encode("ascii")
 if not HOST_PASSWORD_HASH.startswith((b"$2a$", b"$2b$", b"$2y$")):
     raise RuntimeError("HOST_PASSWORD_HASH mancante o non valido nel .env")
+
+JWT_SECRET = os.environ.get("JWT_SECRET", "")
+if not JWT_SECRET or len(JWT_SECRET) < 32:
+    raise RuntimeError("JWT_SECRET mancante o troppo corto nel .env (min 32 caratteri)")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRE_DAYS = 7
+
+_bearer = HTTPBearer(auto_error=False)
+
+
+def create_host_token() -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": "host",
+        "role": "host",
+        "iat": now,
+        "exp": now + timedelta(days=JWT_EXPIRE_DAYS),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def require_host(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+) -> Dict[str, Any]:
+    unauthorized = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise unauthorized
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            JWT_SECRET,
+            algorithms=[JWT_ALGORITHM],
+            options={"require": ["exp", "iat", "sub", "role"]},
+        )
+    except InvalidTokenError:
+        raise unauthorized
+    if payload.get("sub") != "host" or payload.get("role") != "host":
+        raise unauthorized
+    return payload
 
 # Semplice rate limit in-memory per IP: max 5 tentativi / minuto
 _login_attempts: Dict[str, List[float]] = {}
@@ -190,11 +236,17 @@ async def host_verify(request: Request, body: HostVerifyRequest):
     if not ok:
         _record_attempt(ip)
         raise HTTPException(401, "Password host non valida")
-    return {"verified": True}
+    token = create_host_token()
+    return {
+        "verified": True,
+        "access_token": token,
+        "token_type": "bearer",
+        "expires_in": JWT_EXPIRE_DAYS * 24 * 60 * 60,
+    }
 
 
 # Schede
-@api_router.post("/schede", response_model=Scheda)
+@api_router.post("/schede", response_model=Scheda, dependencies=[Depends(require_host)])
 async def create_scheda(payload: SchedaCreate):
     code = await gen_unique_code()
     scheda = Scheda(code=code, name=payload.name, client_name=payload.client_name,
@@ -203,7 +255,7 @@ async def create_scheda(payload: SchedaCreate):
     return scheda
 
 
-@api_router.get("/schede", response_model=List[Scheda])
+@api_router.get("/schede", response_model=List[Scheda], dependencies=[Depends(require_host)])
 async def list_schede():
     docs = await db.schede.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [Scheda(**d) for d in docs]
@@ -217,7 +269,7 @@ async def get_scheda(code: str):
     return Scheda(**doc)
 
 
-@api_router.put("/schede/{code}", response_model=Scheda)
+@api_router.put("/schede/{code}", response_model=Scheda, dependencies=[Depends(require_host)])
 async def update_scheda(code: str, payload: SchedaUpdate):
     doc = await db.schede.find_one({"code": code}, {"_id": 0})
     if not doc:
@@ -232,7 +284,7 @@ async def update_scheda(code: str, payload: SchedaUpdate):
     return Scheda(**doc)
 
 
-@api_router.delete("/schede/{code}")
+@api_router.delete("/schede/{code}", dependencies=[Depends(require_host)])
 async def delete_scheda(code: str):
     r = await db.schede.delete_one({"code": code})
     if r.deleted_count == 0:
@@ -243,7 +295,7 @@ async def delete_scheda(code: str):
     return {"ok": True}
 
 
-@api_router.put("/schede/{code}/paid", response_model=Scheda)
+@api_router.put("/schede/{code}/paid", response_model=Scheda, dependencies=[Depends(require_host)])
 async def set_paid(code: str, payload: SchedaPaidUpdate):
     doc = await db.schede.find_one({"code": code}, {"_id": 0, "code": 1})
     if not doc:
@@ -330,7 +382,7 @@ async def checkin_stats(code: str):
             "weekly_history": weekly_history}
 
 
-@api_router.delete("/checkins/{checkin_id}")
+@api_router.delete("/checkins/{checkin_id}", dependencies=[Depends(require_host)])
 async def delete_checkin(checkin_id: str):
     r = await db.checkins.delete_one({"id": checkin_id})
     if r.deleted_count == 0:
@@ -402,14 +454,14 @@ async def list_exercises():
     return [Exercise(**d) for d in docs]
 
 
-@api_router.post("/exercises", response_model=Exercise)
+@api_router.post("/exercises", response_model=Exercise, dependencies=[Depends(require_host)])
 async def create_exercise(payload: ExerciseCreate):
     ex = Exercise(**payload.model_dump())
     await db.exercises.insert_one(ex.model_dump())
     return ex
 
 
-@api_router.delete("/exercises/{exercise_id}")
+@api_router.delete("/exercises/{exercise_id}", dependencies=[Depends(require_host)])
 async def delete_exercise(exercise_id: str):
     r = await db.exercises.delete_one({"id": exercise_id})
     if r.deleted_count == 0:
@@ -463,7 +515,7 @@ async def get_warmup():
     return WarmupTemplate(**doc)
 
 
-@api_router.put("/warmup", response_model=WarmupTemplate)
+@api_router.put("/warmup", response_model=WarmupTemplate, dependencies=[Depends(require_host)])
 async def put_warmup(payload: WarmupUpdate):
     template = WarmupTemplate(exercises=payload.exercises)
     await db.warmup.update_one({}, {"$set": template.model_dump()}, upsert=True)

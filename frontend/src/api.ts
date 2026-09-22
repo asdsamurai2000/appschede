@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getHostToken, clearHostToken } from "./authStorage";
 
 const BASE = process.env.EXPO_PUBLIC_BACKEND_URL ?? "";
 
@@ -6,6 +7,37 @@ export const api = axios.create({
   baseURL: `${BASE}/api`,
   timeout: 15000,
 });
+
+// ---- Auth interceptors ----
+type UnauthorizedHandler = () => void;
+let onUnauthorized: UnauthorizedHandler | null = null;
+
+export function setUnauthorizedHandler(h: UnauthorizedHandler | null) {
+  onUnauthorized = h;
+}
+
+api.interceptors.request.use(async (config) => {
+  const token = await getHostToken();
+  if (token) {
+    config.headers = config.headers ?? {};
+    (config.headers as any).Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (r) => r,
+  async (error) => {
+    const status = error?.response?.status;
+    const url = String(error?.config?.url ?? "");
+    // A wrong host password is NOT a session-expiry event.
+    if (status === 401 && !url.endsWith("/host/verify")) {
+      await clearHostToken();
+      onUnauthorized?.();
+    }
+    return Promise.reject(error);
+  }
+);
 
 export type ExerciseItem = {
   id: string;
