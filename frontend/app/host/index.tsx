@@ -20,9 +20,11 @@ const useStyles = makeStyles((c) => ({
     marginTop: 16,
   },
   statCell: { flex: 1, padding: 16 },
+  statTile: { flex: 1, padding: 16, gap: 4 },
   statCellDivider: { borderRightWidth: 2, borderRightColor: c.borderStrong },
-  statLabel: { color: c.muted, fontSize: 10, letterSpacing: 2, textTransform: "uppercase" },
+  statLabel: { fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: c.muted },
   statValue: { color: c.onSurface, fontSize: 32, fontWeight: "800", letterSpacing: -1, marginTop: 4 },
+  statHint: { fontSize: 10, letterSpacing: 2, textTransform: "uppercase", marginTop: 2, opacity: 0.85 },
   sectionLabel: {
     color: c.muted,
     fontSize: 11,
@@ -156,16 +158,34 @@ export default function HostDashboard() {
         ListHeaderComponent={
           <View>
             <View style={styles.statsRow}>
-              <View style={[styles.statCell, styles.statCellDivider]}>
-                <Text style={styles.statLabel}>Clienti</Text>
-                <Text style={styles.statValue}>{items.length}</Text>
-              </View>
-              <View style={styles.statCell}>
-                <Text style={styles.statLabel}>Sessioni Tot.</Text>
-                <Text style={styles.statValue}>
-                  {items.reduce((a, s) => a + s.sessions.length, 0)}
+              <Pressable
+                testID="paid-tile"
+                onPress={() => router.push({ pathname: "/host/payments/[status]", params: { status: "paid" } })}
+                style={[styles.statTile, styles.statCellDivider, { backgroundColor: colors.success }]}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <LucideIcon name="flag" size={14} color={colors.onSuccess} />
+                  <Text style={[styles.statLabel, { color: colors.onSuccess }]}>Pagato</Text>
+                </View>
+                <Text style={[styles.statValue, { color: colors.onSuccess }]}>
+                  {items.filter((x) => isPaidThisMonth(x.paid_month)).length}
                 </Text>
-              </View>
+                <Text style={[styles.statHint, { color: colors.onSuccess }]}>Vedi lista</Text>
+              </Pressable>
+              <Pressable
+                testID="unpaid-tile"
+                onPress={() => router.push({ pathname: "/host/payments/[status]", params: { status: "unpaid" } })}
+                style={[styles.statTile, { backgroundColor: colors.brandPrimary }]}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <LucideIcon name="flag" size={14} color={colors.onBrandPrimary} />
+                  <Text style={[styles.statLabel, { color: colors.onBrandPrimary }]}>Da pagare</Text>
+                </View>
+                <Text style={[styles.statValue, { color: colors.onBrandPrimary }]}>
+                  {items.filter((x) => !isPaidThisMonth(x.paid_month)).length}
+                </Text>
+                <Text style={[styles.statHint, { color: colors.onBrandPrimary }]}>Vedi lista</Text>
+              </Pressable>
             </View>
             <Pressable
               testID="host-library-tile"
