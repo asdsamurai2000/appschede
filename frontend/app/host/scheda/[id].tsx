@@ -10,6 +10,7 @@ import { makeStyles, useTheme } from "@/src/theme";
 import { Header } from "@/src/components/header";
 import { Button } from "@/src/components/ui";
 import { api, type Scheda, type SessionItem, type ExerciseItem, type LibraryExercise, type ClientState, type ClientStateHistory, isPaidThisMonth } from "@/src/api";
+import { useUnsavedChangesWarning } from "@/src/hooks/useUnsavedChangesWarning";
 
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
@@ -166,6 +167,9 @@ export default function SchedaEditor() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [paidMonth, setPaidMonth] = useState<string | null>(null);
   const [togglingPaid, setTogglingPaid] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  const markDirty = () => setDirty(true);
 
   const openHistory = async (exId: string, exName: string) => {
     setHistoryFor({ exId, exName });
@@ -219,13 +223,16 @@ export default function SchedaEditor() {
     if (sessions.length >= 5) return;
     const letters = ["A", "B", "C", "D", "E"];
     setSessions((s) => [...s, newSession(`Giorno ${letters[s.length]}`)]);
+    markDirty();
   };
   const removeSession = (idx: number) => {
     if (sessions.length <= 1) return;
     setSessions((s) => s.filter((_, i) => i !== idx));
+    markDirty();
   };
   const updateSession = (idx: number, patch: Partial<SessionItem>) => {
     setSessions((s) => s.map((x, i) => (i === idx ? { ...x, ...patch } : x)));
+    markDirty();
   };
   const addExercise = (sIdx: number, name = "") =>
     updateSession(sIdx, { exercises: [...sessions[sIdx].exercises, newExercise(name)] });
@@ -249,6 +256,8 @@ export default function SchedaEditor() {
       setTogglingPaid(false);
     }
   };
+
+  const unsaved = useUnsavedChangesWarning(dirty && !isNew, { onSave: async () => { await save(); } });
 
   const save = async () => {
     if (!name.trim() || !clientName.trim()) {
@@ -280,6 +289,8 @@ export default function SchedaEditor() {
             }
           })));
         }
+        setDirty(false);
+        unsaved.markSaved();
         router.back();
       }
     } catch {
@@ -335,7 +346,7 @@ export default function SchedaEditor() {
         <TextInput
           testID="input-client-name"
           value={clientName}
-          onChangeText={setClientName}
+          onChangeText={(v) => { setClientName(v); markDirty(); }}
           placeholder="Es. Marco Rossi"
           placeholderTextColor={colors.muted}
           style={styles.input}
@@ -345,7 +356,7 @@ export default function SchedaEditor() {
         <TextInput
           testID="input-scheda-name"
           value={name}
-          onChangeText={setName}
+          onChangeText={(v) => { setName(v); markDirty(); }}
           placeholder="Es. Ipertrofia Mese 1"
           placeholderTextColor={colors.muted}
           style={styles.input}

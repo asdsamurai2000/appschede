@@ -8,6 +8,7 @@ import { Header } from "@/src/components/header";
 import { Button } from "@/src/components/ui";
 import { api, type LibraryExercise } from "@/src/api";
 import { useIsHost } from "@/src/state";
+import { useUnsavedChangesWarning } from "@/src/hooks/useUnsavedChangesWarning";
 
 const MUSCLE_GROUPS = ["PETTO", "DORSO", "SPALLE", "BICIPITI", "TRICIPITI", "ADDOME", "GAMBE", "CORPO LIBERO"] as const;
 type MuscleGroup = (typeof MUSCLE_GROUPS)[number];
@@ -117,6 +118,13 @@ export default function Library() {
       await load();
     } finally { setSaving(false); }
   };
+
+  const dirty = !!(name.trim() || desc.trim());
+  useUnsavedChangesWarning(dirty && isHost, {
+    onSave: async () => { if (name.trim()) await add(); },
+    saveLabel: "Aggiungi",
+    message: "Hai un esercizio non ancora aggiunto. Vuoi salvarlo prima di uscire?",
+  });
 
   const del = (id: string) => {
     Alert.alert("Elimina esercizio?", "", [

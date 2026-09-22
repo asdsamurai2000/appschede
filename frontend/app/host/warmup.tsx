@@ -10,6 +10,7 @@ import { makeStyles, useTheme } from "@/src/theme";
 import { Header } from "@/src/components/header";
 import { Button } from "@/src/components/ui";
 import { api, type ExerciseItem, type WarmupTemplate } from "@/src/api";
+import { useUnsavedChangesWarning } from "@/src/hooks/useUnsavedChangesWarning";
 
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
@@ -64,6 +65,8 @@ export default function WarmupEditor() {
   const [exercises, setExercises] = useState<ExerciseItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const markDirty = () => setDirty(true);
 
   useEffect(() => {
     (async () => {
@@ -75,21 +78,27 @@ export default function WarmupEditor() {
     })();
   }, []);
 
-  const upd = (i: number, patch: Partial<ExerciseItem>) =>
+  const upd = (i: number, patch: Partial<ExerciseItem>) => {
     setExercises((xs) => xs.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
-  const remove = (i: number) => setExercises((xs) => xs.filter((_, idx) => idx !== i));
-  const add = () => setExercises((xs) => [...xs, newStretch()]);
+    markDirty();
+  };
+  const remove = (i: number) => { setExercises((xs) => xs.filter((_, idx) => idx !== i)); markDirty(); };
+  const add = () => { setExercises((xs) => [...xs, newStretch()]); markDirty(); };
 
   const save = async () => {
     setSaving(true);
     try {
       const clean = exercises.filter((e) => e.name.trim());
       await api.put("/warmup", { exercises: clean });
+      setDirty(false);
+      unsaved.markSaved();
       router.back();
     } catch {
       Alert.alert("Errore", "Impossibile salvare");
     } finally { setSaving(false); }
   };
+
+  const unsaved = useUnsavedChangesWarning(dirty, { onSave: async () => { await save(); } });
 
   if (loading) {
     return (
