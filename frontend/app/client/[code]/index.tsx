@@ -105,9 +105,19 @@ export default function ClientDashboard() {
         title={scheda.client_name}
         subtitle={scheda.name}
         right={
-          <Pressable testID="client-exit-button" onPress={exit} style={{ padding: 8 }} hitSlop={8}>
-            <LucideIcon name="log-out" size={20} color={colors.onSurface} />
-          </Pressable>
+          <View style={{ flexDirection: "row", gap: 4 }}>
+            <Pressable
+              testID="client-open-settings"
+              onPress={() => router.push("/settings")}
+              style={{ padding: 8 }}
+              hitSlop={8}
+            >
+              <LucideIcon name="settings" size={20} color={colors.onSurface} />
+            </Pressable>
+            <Pressable testID="client-exit-button" onPress={exit} style={{ padding: 8 }} hitSlop={8}>
+              <LucideIcon name="log-out" size={20} color={colors.onSurface} />
+            </Pressable>
+          </View>
         }
       />
       <ScrollView
