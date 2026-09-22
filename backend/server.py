@@ -345,24 +345,51 @@ DEFAULT_WARMUP = [
 ]
 
 
+MUSCLE_GROUPS = ["PETTO", "DORSO", "SPALLE", "BICIPITI", "TRICIPITI", "ADDOME", "GAMBE", "CORPO LIBERO"]
+LEGACY_MUSCLE_MAP = {
+    "Pettorali": "PETTO",
+    "Pettorale": "PETTO",
+    "Petto": "PETTO",
+    "Schiena": "DORSO",
+    "Dorso": "DORSO",
+    "Spalle": "SPALLE",
+    "Bicipiti": "BICIPITI",
+    "Bicipite": "BICIPITI",
+    "Tricipiti": "TRICIPITI",
+    "Tricipite": "TRICIPITI",
+    "Core": "ADDOME",
+    "Addome": "ADDOME",
+    "Addominali": "ADDOME",
+    "Gambe": "GAMBE",
+    "Corpo libero": "CORPO LIBERO",
+}
+
+
 # Exercise library
 DEFAULT_EXERCISES_LIBRARY = [
-    ("Panca Piana", "Pettorali", "Esercizio fondamentale per pettorali, spalle anteriori e tricipiti. Sdraiati sulla panca, presa poco più larga delle spalle."),
-    ("Squat", "Gambe", "Re degli esercizi. Bilanciere sui trapezi, scendi mantenendo la schiena dritta finché le cosce sono parallele al pavimento."),
-    ("Stacco da Terra", "Schiena", "Esercizio completo per catena posteriore. Schiena neutra, spingi con i talloni, estendi anche e ginocchia insieme."),
-    ("Trazioni", "Schiena", "Presa prona alla sbarra, tira il petto verso la sbarra contraendo dorsali e scapole."),
-    ("Military Press", "Spalle", "In piedi, bilanciere all'altezza delle spalle. Spingi sopra la testa senza inarcare la schiena."),
-    ("Curl Bilanciere", "Bicipiti", "In piedi, gomiti fissi al fianco, fletti gli avambracci portando il bilanciere alle spalle."),
-    ("French Press", "Tricipiti", "Sdraiato o in piedi, estendi i gomiti mantenendoli fissi puntati verso l'alto."),
-    ("Affondi", "Gambe", "Alternando le gambe, passo lungo in avanti, scendi finché il ginocchio posteriore sfiora il pavimento."),
-    ("Rematore", "Schiena", "Busto inclinato 45°, tira il bilanciere verso l'ombelico contraendo le scapole."),
-    ("Plank", "Core", "Mantieni la posizione con avambracci a terra, corpo allineato dalle spalle alle caviglie."),
-    ("Crunch", "Core", "Sdraiato supino, ginocchia piegate, solleva le scapole contraendo l'addome."),
-    ("Leg Press", "Gambe", "Alla macchina, piedi alla larghezza spalle, spingi la piattaforma senza bloccare le ginocchia."),
-    ("Panca Inclinata", "Pettorali", "Panca a 30-45°, colpisce la porzione alta del petto."),
-    ("Alzate Laterali", "Spalle", "Manubri lungo i fianchi, sollevali di lato fino all'altezza spalle, gomiti leggermente piegati."),
-    ("Dip alle Parallele", "Tricipiti", "Sospeso alle parallele, scendi finché le spalle sono all'altezza dei gomiti, poi spingi."),
+    ("Panca Piana", "PETTO", "Esercizio fondamentale per pettorali, spalle anteriori e tricipiti. Sdraiati sulla panca, presa poco più larga delle spalle."),
+    ("Panca Inclinata", "PETTO", "Panca a 30-45°, colpisce la porzione alta del petto."),
+    ("Squat", "GAMBE", "Re degli esercizi. Bilanciere sui trapezi, scendi mantenendo la schiena dritta finché le cosce sono parallele al pavimento."),
+    ("Affondi", "GAMBE", "Alternando le gambe, passo lungo in avanti, scendi finché il ginocchio posteriore sfiora il pavimento."),
+    ("Leg Press", "GAMBE", "Alla macchina, piedi alla larghezza spalle, spingi la piattaforma senza bloccare le ginocchia."),
+    ("Stacco da Terra", "DORSO", "Esercizio completo per catena posteriore. Schiena neutra, spingi con i talloni, estendi anche e ginocchia insieme."),
+    ("Rematore", "DORSO", "Busto inclinato 45°, tira il bilanciere verso l'ombelico contraendo le scapole."),
+    ("Trazioni", "DORSO", "Presa prona alla sbarra, tira il petto verso la sbarra contraendo dorsali e scapole."),
+    ("Military Press", "SPALLE", "In piedi, bilanciere all'altezza delle spalle. Spingi sopra la testa senza inarcare la schiena."),
+    ("Alzate Laterali", "SPALLE", "Manubri lungo i fianchi, sollevali di lato fino all'altezza spalle, gomiti leggermente piegati."),
+    ("Curl Bilanciere", "BICIPITI", "In piedi, gomiti fissi al fianco, fletti gli avambracci portando il bilanciere alle spalle."),
+    ("French Press", "TRICIPITI", "Sdraiato o in piedi, estendi i gomiti mantenendoli fissi puntati verso l'alto."),
+    ("Dip alle Parallele", "TRICIPITI", "Sospeso alle parallele, scendi finché le spalle sono all'altezza dei gomiti, poi spingi."),
+    ("Plank", "ADDOME", "Mantieni la posizione con avambracci a terra, corpo allineato dalle spalle alle caviglie."),
+    ("Crunch", "ADDOME", "Sdraiato supino, ginocchia piegate, solleva le scapole contraendo l'addome."),
+    ("Push Up", "CORPO LIBERO", "Piegamenti sulle braccia; petto verso il pavimento, corpo teso."),
+    ("Burpees", "CORPO LIBERO", "Squat + plank + salto verticale, esercizio full body."),
 ]
+
+
+@api_router.get("/muscle-groups")
+async def get_muscle_groups():
+    return {"groups": MUSCLE_GROUPS}
 
 
 @api_router.get("/exercises", response_model=List[Exercise])
@@ -441,6 +468,12 @@ async def put_warmup(payload: WarmupUpdate):
 
 @app.on_event("startup")
 async def seed():
+    # Normalize legacy muscle_group values
+    async for doc in db.exercises.find({}, {"_id": 0}):
+        mg = doc.get("muscle_group", "")
+        if mg not in MUSCLE_GROUPS:
+            new_mg = LEGACY_MUSCLE_MAP.get(mg, "CORPO LIBERO")
+            await db.exercises.update_one({"id": doc["id"]}, {"$set": {"muscle_group": new_mg}})
     count = await db.exercises.count_documents({})
     if count == 0:
         seed_docs = [Exercise(name=n, muscle_group=m, description=d).model_dump()
