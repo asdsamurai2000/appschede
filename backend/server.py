@@ -114,12 +114,14 @@ class ClientState(BaseModel):
     exercise_id: str
     notes: str = ""
     weight: str = ""
+    reps: str = ""
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ClientStateUpdate(BaseModel):
     notes: Optional[str] = None
     weight: Optional[str] = None
+    reps: Optional[str] = None
 
 
 class ClientStateHistory(BaseModel):
@@ -130,6 +132,7 @@ class ClientStateHistory(BaseModel):
     session_name: Optional[str] = None
     notes: str = ""
     weight: str = ""
+    reps: str = ""
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -288,6 +291,7 @@ async def create_checkin(payload: CheckInCreate):
                     session_name=payload.session_name,
                     notes=(cs or {}).get("notes", "") or "",
                     weight=(cs or {}).get("weight", "") or ex.get("weight", "") or "",
+                    reps=(cs or {}).get("reps", "") or ex.get("reps", "") or "",
                     timestamp=ci.timestamp,
                 )
                 await db.client_state_history.insert_one(snap.model_dump())

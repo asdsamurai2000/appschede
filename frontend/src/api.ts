@@ -69,6 +69,7 @@ export type ClientState = {
   exercise_id: string;
   notes: string;
   weight: string;
+  reps: string;
   updated_at: string;
 };
 
@@ -80,6 +81,7 @@ export type ClientStateHistory = {
   session_name?: string | null;
   notes: string;
   weight: string;
+  reps: string;
   timestamp: string;
 };
 

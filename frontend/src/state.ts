@@ -68,7 +68,7 @@ export async function clearHostVerified() {
 }
 
 // ---- Client-side per-exercise overrides (weight delta + client notes) ----
-export type ExerciseOverride = { weight?: string; clientNotes?: string };
+export type ExerciseOverride = { weight?: string; reps?: string; clientNotes?: string };
 export type SessionOverrides = Record<string, ExerciseOverride>; // exerciseId -> override
 
 function overrideKey(code: string) { return `gymcode:overrides:${code}`; }

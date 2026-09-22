@@ -168,6 +168,7 @@ export default function ActiveSession() {
           for (const cs of s.data) {
             merged[cs.exercise_id] = {
               weight: cs.weight || merged[cs.exercise_id]?.weight,
+              reps: cs.reps || merged[cs.exercise_id]?.reps,
               clientNotes: cs.notes || merged[cs.exercise_id]?.clientNotes,
             };
           }
@@ -183,6 +184,7 @@ export default function ActiveSession() {
           for (const cs of s.data) {
             merged[cs.exercise_id] = {
               weight: cs.weight || merged[cs.exercise_id]?.weight,
+              reps: cs.reps || merged[cs.exercise_id]?.reps,
               clientNotes: cs.notes || merged[cs.exercise_id]?.clientNotes,
             };
           }
@@ -208,12 +210,13 @@ export default function ActiveSession() {
     // Diff & schedule per-exercise sync
     for (const [exId, cur] of Object.entries(overrides)) {
       const prev = lastSentRef.current[exId];
-      if (prev?.weight === cur.weight && prev?.clientNotes === cur.clientNotes) continue;
+      if (prev?.weight === cur.weight && prev?.reps === cur.reps && prev?.clientNotes === cur.clientNotes) continue;
       if (debounceRef.current[exId]) clearTimeout(debounceRef.current[exId]);
       debounceRef.current[exId] = setTimeout(() => {
         api.put(`/schede/${code}/client-state/${exId}`, {
           notes: cur.clientNotes ?? "",
           weight: cur.weight ?? "",
+          reps: cur.reps ?? "",
         }).catch(() => {});
         lastSentRef.current = { ...lastSentRef.current, [exId]: { ...cur } };
       }, 800);
@@ -341,6 +344,41 @@ export default function ActiveSession() {
                       <Pressable
                         testID={`weight-plus-${ex.id}`}
                         onPress={() => step(1)}
+                        style={styles.weightStepper}
+                        hitSlop={8}
+                      >
+                        <LucideIcon name="plus" size={18} color={colors.onSurface} />
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              })() : null}
+              {!isWarmup ? (() => {
+                const raw = overrides[ex.id]?.reps ?? "";
+                const num = raw ? parseInt(raw.replace(/[^0-9]/g, ""), 10) : NaN;
+                const cur = Number.isFinite(num) ? num : 0;
+                const stepReps = (delta: number) => {
+                  const next = Math.max(0, cur + delta);
+                  setOverrides((o) => ({ ...o, [ex.id]: { ...o[ex.id], reps: String(next) } }));
+                };
+                return (
+                  <View style={styles.weightBlock}>
+                    <Text style={styles.metaLabel}>Ripetizioni fatte</Text>
+                    <View style={styles.weightRow}>
+                      <Pressable
+                        testID={`reps-minus-${ex.id}`}
+                        onPress={() => stepReps(-1)}
+                        style={styles.weightStepper}
+                        hitSlop={8}
+                      >
+                        <LucideIcon name="minus" size={18} color={colors.onSurface} />
+                      </Pressable>
+                      <Text style={styles.weightValue} numberOfLines={1} testID={`reps-value-${ex.id}`}>
+                        {raw ? String(cur) : "—"}
+                      </Text>
+                      <Pressable
+                        testID={`reps-plus-${ex.id}`}
+                        onPress={() => stepReps(1)}
                         style={styles.weightStepper}
                         hitSlop={8}
                       >
@@ -486,6 +524,11 @@ export default function ActiveSession() {
                             fontSize: 12, fontWeight: "800", letterSpacing: 1,
                           }}>
                             {delta > 0 ? "+" : ""}{Number.isInteger(delta) ? delta : delta.toFixed(1)} kg
+                          </Text>
+                        ) : null}
+                        {h.reps ? (
+                          <Text style={{ color: colors.muted, fontSize: 13, fontWeight: "700", letterSpacing: 1 }}>
+                            · {h.reps} reps
                           </Text>
                         ) : null}
                       </View>
