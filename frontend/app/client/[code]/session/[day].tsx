@@ -7,7 +7,7 @@ import LucideIcon from "@react-native-vector-icons/lucide";
 import { makeStyles, useTheme } from "@/src/theme";
 import { Header } from "@/src/components/header";
 import { Button } from "@/src/components/ui";
-import { api, type Scheda, type SessionItem, type ClientState, type WarmupTemplate } from "@/src/api";
+import { api, type Scheda, type SessionItem, type ClientState, type WarmupTemplate, type ClientStateHistory } from "@/src/api";
 import { getSessionOverrides, saveSessionOverrides, type SessionOverrides } from "@/src/state";
 
 const useStyles = makeStyles((c) => ({
@@ -55,6 +55,27 @@ const useStyles = makeStyles((c) => ({
     borderWidth: 1, borderColor: c.border, backgroundColor: c.surfaceSecondary,
     color: c.onSurface, fontSize: 13, paddingHorizontal: 10, paddingVertical: 8, minHeight: 44,
   },
+  historyBtn: {
+    marginTop: 10, borderWidth: 2, borderColor: c.brandPrimary, backgroundColor: c.brandTertiary,
+    paddingVertical: 10, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+  },
+  historyBtnText: {
+    color: c.brandPrimary, fontWeight: "800", letterSpacing: 2,
+    textTransform: "uppercase", fontSize: 12,
+  },
+  // history modal
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  modalCard: { backgroundColor: c.surface, borderTopWidth: 2, borderTopColor: c.borderStrong, maxHeight: "80%" },
+  modalHeader: {
+    padding: 16, borderBottomWidth: 2, borderBottomColor: c.borderStrong,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+  },
+  modalTitle: { color: c.onSurface, fontWeight: "800", fontSize: 16, letterSpacing: 2, textTransform: "uppercase" },
+  historyRow: { padding: 14, borderBottomWidth: 1, borderBottomColor: c.divider },
+  historyDate: { color: c.muted, fontSize: 10, letterSpacing: 2, textTransform: "uppercase" },
+  historyWeight: { color: c.onSurface, fontWeight: "800", fontSize: 22, marginTop: 4, letterSpacing: -0.5 },
+  historySession: { color: c.brandPrimary, fontSize: 11, letterSpacing: 2, marginTop: 2, textTransform: "uppercase" },
+  historyNote: { color: c.onSurfaceSecondary, fontSize: 13, marginTop: 6, lineHeight: 18 },
   setsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: c.divider },
   setChip: {
     width: 44, height: 44, borderWidth: 2, borderColor: c.borderStrong,
@@ -110,6 +131,20 @@ export default function ActiveSession() {
   const [done, setDone] = useState<SetStatus>({});
   const [checkingIn, setCheckingIn] = useState(false);
   const [overrides, setOverrides] = useState<SessionOverrides>({});
+  const [historyFor, setHistoryFor] = useState<{ exId: string; exName: string } | null>(null);
+  const [historyItems, setHistoryItems] = useState<ClientStateHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const openHistory = async (exId: string, exName: string) => {
+    setHistoryFor({ exId, exName });
+    setHistoryItems([]);
+    setHistoryLoading(true);
+    try {
+      const r = await api.get<ClientStateHistory[]>(`/schede/${code}/client-state/${exId}/history?limit=30`);
+      setHistoryItems(r.data);
+    } catch {}
+    finally { setHistoryLoading(false); }
+  };
 
   const isWarmup = day === "warmup";
 
@@ -312,6 +347,14 @@ export default function ActiveSession() {
                         <LucideIcon name="plus" size={18} color={colors.onSurface} />
                       </Pressable>
                     </View>
+                    <Pressable
+                      testID={`client-open-history-${ex.id}`}
+                      onPress={() => openHistory(ex.id, ex.name || "Esercizio")}
+                      style={styles.historyBtn}
+                    >
+                      <LucideIcon name="line-chart" size={14} color={colors.brandPrimary} />
+                      <Text style={styles.historyBtnText}>Storico progressione</Text>
+                    </Pressable>
                   </View>
                 );
               })() : null}
@@ -392,6 +435,67 @@ export default function ActiveSession() {
             <View style={styles.timerBtn}>
               <Button testID="rest-add-button" label="+30s" onPress={() => setRestLeft((n) => n + 30)} />
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!historyFor} transparent animationType="slide" onRequestClose={() => setHistoryFor(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Storico</Text>
+                <Text style={{ color: colors.muted, fontSize: 11, letterSpacing: 2, marginTop: 2, textTransform: "uppercase" }} numberOfLines={1}>
+                  {historyFor?.exName}
+                </Text>
+              </View>
+              <Pressable onPress={() => setHistoryFor(null)} hitSlop={8}>
+                <LucideIcon name="x" size={22} color={colors.onSurface} />
+              </Pressable>
+            </View>
+            <ScrollView>
+              {historyLoading ? (
+                <ActivityIndicator style={{ marginTop: 32 }} color={colors.brandPrimary} />
+              ) : historyItems.length === 0 ? (
+                <View style={{ padding: 32, alignItems: "center", gap: 8 }}>
+                  <LucideIcon name="line-chart" size={28} color={colors.muted} />
+                  <Text style={{ color: colors.muted, fontSize: 12, letterSpacing: 2, textTransform: "uppercase", textAlign: "center" }}>
+                    Nessuna sessione registrata{"\n"}per questo esercizio
+                  </Text>
+                </View>
+              ) : (
+                historyItems.map((h, i) => {
+                  const prev = historyItems[i + 1];
+                  const parseKg = (s: string) => {
+                    const m = (s || "").match(/(-?\d+(?:[.,]\d+)?)/);
+                    return m ? parseFloat(m[1].replace(",", ".")) : null;
+                  };
+                  const curKg = parseKg(h.weight);
+                  const prevKg = prev ? parseKg(prev.weight) : null;
+                  const delta = curKg !== null && prevKg !== null ? curKg - prevKg : null;
+                  return (
+                    <View key={h.id} style={styles.historyRow} testID={`client-history-item-${i}`}>
+                      <Text style={styles.historyDate}>
+                        {new Date(h.timestamp).toLocaleDateString("it-IT", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
+                        <Text style={styles.historyWeight}>{h.weight || "—"}</Text>
+                        {delta !== null && delta !== 0 ? (
+                          <Text style={{
+                            color: delta > 0 ? colors.success : colors.brandPrimary,
+                            fontSize: 12, fontWeight: "800", letterSpacing: 1,
+                          }}>
+                            {delta > 0 ? "+" : ""}{Number.isInteger(delta) ? delta : delta.toFixed(1)} kg
+                          </Text>
+                        ) : null}
+                      </View>
+                      {h.session_name ? <Text style={styles.historySession}>{h.session_name}</Text> : null}
+                      {h.notes ? <Text style={styles.historyNote}>“{h.notes}”</Text> : null}
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
