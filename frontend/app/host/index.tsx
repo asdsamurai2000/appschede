@@ -104,13 +104,27 @@ export default function HostDashboard() {
   const router = useRouter();
 
   const [items, setItems] = useState<Scheda[]>([]);
+  const [archivedCount, setArchivedCount] = useState(0);
+  const [autoArchivedInfo, setAutoArchivedInfo] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const r = await api.get<Scheda[]>("/schede");
-      setItems(r.data);
+      // Auto-archivia in silenzio le schede senza check-in da 60+ giorni.
+      // Fire-and-forget con guardia: se fallisce non blocca il caricamento.
+      let justArchived = 0;
+      try {
+        const auto = await api.post<{ count: number }>("/schede/auto-archive", { days: 60 });
+        justArchived = auto?.data?.count ?? 0;
+      } catch {}
+      const [active, archived] = await Promise.all([
+        api.get<Scheda[]>("/schede", { params: { archived: "false" } }),
+        api.get<Scheda[]>("/schede", { params: { archived: "true" } }),
+      ]);
+      setItems(active.data);
+      setArchivedCount(archived.data.length);
+      if (justArchived > 0) setAutoArchivedInfo(justArchived);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -216,6 +230,59 @@ export default function HostDashboard() {
               </View>
               <LucideIcon name="chevron-right" size={22} color={colors.onSurface} />
             </Pressable>
+            <Pressable
+              testID="host-archive-tile"
+              onPress={() => router.push("/host/archive")}
+              style={[styles.libraryTile, { marginTop: -2 }]}
+            >
+              <View style={styles.libraryTileLeft}>
+                <LucideIcon name="archive" size={22} color={colors.brandPrimary} />
+                <View>
+                  <Text style={styles.libraryTileTitle}>Archivio</Text>
+                  <Text style={styles.libraryTileSub}>
+                    {archivedCount === 0
+                      ? "Nessuna scheda archiviata"
+                      : `${archivedCount} ${archivedCount === 1 ? "scheda archiviata" : "schede archiviate"}`}
+                  </Text>
+                </View>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                {archivedCount > 0 ? (
+                  <View testID="archive-badge" style={{
+                    backgroundColor: colors.brandPrimary,
+                    paddingHorizontal: 8, paddingVertical: 2,
+                    minWidth: 22, alignItems: "center",
+                  }}>
+                    <Text style={{ color: colors.onBrandPrimary, fontSize: 12, fontWeight: "800", letterSpacing: 1 }}>
+                      {archivedCount}
+                    </Text>
+                  </View>
+                ) : null}
+                <LucideIcon name="chevron-right" size={22} color={colors.onSurface} />
+              </View>
+            </Pressable>
+            {autoArchivedInfo !== null ? (
+              <Pressable
+                testID="auto-archive-banner"
+                onPress={() => { setAutoArchivedInfo(null); router.push("/host/archive"); }}
+                style={{
+                  marginTop: 16,
+                  borderWidth: 2, borderColor: colors.borderStrong,
+                  padding: 12, flexDirection: "row", gap: 10, alignItems: "center",
+                  backgroundColor: colors.surfaceSecondary,
+                }}
+              >
+                <LucideIcon name="archive" size={18} color={colors.brandPrimary} />
+                <Text style={{ flex: 1, color: colors.onSurface, fontSize: 12, letterSpacing: 1 }}>
+                  {autoArchivedInfo === 1
+                    ? "1 scheda inattiva da 60+ giorni è stata archiviata."
+                    : `${autoArchivedInfo} schede inattive da 60+ giorni sono state archiviate.`}
+                </Text>
+                <Text style={{ color: colors.brandPrimary, fontSize: 11, letterSpacing: 2, fontWeight: "800", textTransform: "uppercase" }}>
+                  Apri
+                </Text>
+              </Pressable>
+            ) : null}
             <Text style={styles.sectionLabel}>Schede Attive</Text>
           </View>
         }

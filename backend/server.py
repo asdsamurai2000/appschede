@@ -112,6 +112,8 @@ class Scheda(BaseModel):
     client_name: str          # nome cliente
     sessions: List[SessionItem] = []
     paid_month: Optional[str] = None   # "YYYY-MM" ultimo mese pagato
+    archived: bool = False
+    archived_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -132,6 +134,14 @@ class SchedaUpdate(BaseModel):
 class SchedaPaidUpdate(BaseModel):
     # True → segna pagato per il mese corrente. False → azzera.
     paid: bool
+
+
+class SchedaArchiveUpdate(BaseModel):
+    archived: bool
+
+
+class AutoArchiveRequest(BaseModel):
+    days: int = 60
 
 
 class CheckIn(BaseModel):
@@ -256,8 +266,18 @@ async def create_scheda(payload: SchedaCreate):
 
 
 @api_router.get("/schede", response_model=List[Scheda], dependencies=[Depends(require_host)])
-async def list_schede():
-    docs = await db.schede.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+async def list_schede(archived: str = "false"):
+    """
+    archived: 'false' (default, solo attive) | 'true' (solo archiviate) | 'all'
+    """
+    if archived == "true":
+        query = {"archived": True}
+    elif archived == "all":
+        query = {}
+    else:
+        # Includi anche i documenti legacy senza il campo `archived`
+        query = {"$or": [{"archived": False}, {"archived": {"$exists": False}}]}
+    docs = await db.schede.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [Scheda(**d) for d in docs]
 
 
@@ -265,6 +285,9 @@ async def list_schede():
 async def get_scheda(code: str):
     doc = await db.schede.find_one({"code": code}, {"_id": 0})
     if not doc:
+        raise HTTPException(404, "Scheda non trovata")
+    if doc.get("archived"):
+        # Il client con solo il codice NON deve vedere schede archiviate.
         raise HTTPException(404, "Scheda non trovata")
     return Scheda(**doc)
 
@@ -309,6 +332,67 @@ async def set_paid(code: str, payload: SchedaPaidUpdate):
     )
     doc = await db.schede.find_one({"code": code}, {"_id": 0})
     return Scheda(**doc)
+
+
+@api_router.put("/schede/{code}/archive", response_model=Scheda, dependencies=[Depends(require_host)])
+async def set_archived(code: str, payload: SchedaArchiveUpdate):
+    doc = await db.schede.find_one({"code": code}, {"_id": 0, "code": 1})
+    if not doc:
+        raise HTTPException(404, "Scheda non trovata")
+    now = datetime.now(timezone.utc)
+    await db.schede.update_one(
+        {"code": code},
+        {"$set": {
+            "archived": payload.archived,
+            "archived_at": now if payload.archived else None,
+            "updated_at": now,
+        }},
+    )
+    doc = await db.schede.find_one({"code": code}, {"_id": 0})
+    return Scheda(**doc)
+
+
+@api_router.post("/schede/auto-archive", dependencies=[Depends(require_host)])
+async def auto_archive(payload: AutoArchiveRequest):
+    """
+    Archivia in silenzio tutte le schede attive senza check-in da `days` giorni
+    (fallback: created_at). Restituisce l'elenco dei codici archiviati.
+    """
+    days = max(1, min(365, int(payload.days or 60)))
+    now = datetime.now(timezone.utc)
+    threshold = now - timedelta(days=days)
+    archived_codes: List[str] = []
+
+    cursor = db.schede.find(
+        {"$or": [{"archived": False}, {"archived": {"$exists": False}}]},
+        {"_id": 0, "code": 1, "created_at": 1},
+    )
+    async for s in cursor:
+        code = s.get("code")
+        if not code:
+            continue
+        last = await db.checkins.find_one(
+            {"code": code}, {"_id": 0, "timestamp": 1}, sort=[("timestamp", -1)]
+        )
+        last_ts = (last or {}).get("timestamp") or s.get("created_at")
+        if isinstance(last_ts, str):
+            # Difensivo: tollera datetime salvati come stringhe
+            try:
+                last_ts = datetime.fromisoformat(last_ts.replace("Z", "+00:00"))
+            except Exception:
+                last_ts = None
+        if last_ts is None:
+            continue
+        if last_ts.tzinfo is None:
+            last_ts = last_ts.replace(tzinfo=timezone.utc)
+        if last_ts < threshold:
+            await db.schede.update_one(
+                {"code": code},
+                {"$set": {"archived": True, "archived_at": now, "updated_at": now}},
+            )
+            archived_codes.append(code)
+
+    return {"archived_codes": archived_codes, "count": len(archived_codes), "days": days}
 
 
 # Check-ins

@@ -62,6 +62,8 @@ export type Scheda = {
   client_name: string;
   sessions: SessionItem[];
   paid_month?: string | null;
+  archived?: boolean;
+  archived_at?: string | null;
   created_at: string;
   updated_at: string;
 };
