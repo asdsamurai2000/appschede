@@ -358,7 +358,7 @@ async def auto_archive(payload: AutoArchiveRequest):
     Archivia in silenzio tutte le schede attive senza check-in da `days` giorni
     (fallback: created_at). Restituisce l'elenco dei codici archiviati.
     """
-    days = max(1, min(365, int(payload.days or 60)))
+    days = max(1, min(365, int(payload.days) if payload.days else 60))
     now = datetime.now(timezone.utc)
     threshold = now - timedelta(days=days)
     archived_codes: List[str] = []

@@ -1,0 +1,41 @@
+{
+  "summary": "Auto-Pulizia Schede feature verified end-to-end. Backend: 15/15 pytest tests PASS in /app/backend/tests/test_auto_archive.py — POST /api/schede/auto-archive archives only schede whose latest checkin (or created_at fallback) is >60 days old, ignores schede with a recent checkin, is idempotent (2nd run returns count=0, archived_codes=[]), and returns {archived_codes, count, days}. GET /api/schede filter works for archived=false (default, includes legacy docs missing the field), archived=true, and archived=all. PUT /api/schede/{code}/archive toggles archived + archived_at correctly (401 without JWT, 404 on unknown code). Public GET /api/schede/{code} returns 404 for archived schede while active/legacy ones return 200. Auth guard confirmed (401) on /schede/auto-archive, PUT /schede/{code}/archive, and GET /schede. Frontend: verified via Playwright on the public preview URL — password gymhost2026 → dashboard; the Archivio tile shows badge=1 with subtitle '1 scheda archiviata' when a seeded archived doc exists, tap navigates to /host/archive where the card renders with client_name, code pill, 'Archiviata il DD/MM/YYYY' meta and both Ripristina + Elimina buttons visible; empty state (no archived docs) shows no badge, subtitle 'Nessuna scheda archiviata' and empty-archive component 'ARCHIVIO VUOTO' on /host/archive. Ripristina/Elimina onPress handlers use RN Alert.alert (no-op on Expo web) so the confirmation flow was skipped per instructions — button visibility + testIDs confirmed instead. No functional bugs found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_auto_archive.py",
+    "/app/test_reports/pytest/pytest_auto_archive.xml"
+  ],
+  "action_items": [
+    "OPTIONAL polish (not a blocker): in /app/frontend/app/host/archive.tsx the `load()` callback wraps the api.get in try/finally with no `catch`; if the token has expired and the interceptor rejects, the axios error becomes an unhandled promise rejection and the Expo dev-web build shows a red 'Uncaught Error: Request failed with status code 401' overlay before the redirect to /host-unlock kicks in. The redirect DOES happen (correct behavior); only the overlay is cosmetic and only in dev-web. Adding a `catch {}` around the api.get in load() suppresses it. Native/production builds are unaffected.",
+    "OPTIONAL polish: backend `int(payload.days or 60)` in POST /api/schede/auto-archive means days=0 is coerced to 60 instead of being clamped to the documented lower bound of 1 (upper clamp 365 works). Behaviour is safe (no unwanted archives), but the min=1 clamp is unreachable via days=0. Consider `int(payload.days if payload.days is not None else 60)`."
+  ],
+  "critical_code_review_comments": [
+    "server.py POST /schede/auto-archive is correct and idempotent: it filters {$or: [{archived:false}, {archived:{$exists:false}}]} (so legacy docs are considered) and uses the latest checkin timestamp with created_at fallback. Handles str-datetime edge case defensively.",
+    "server.py GET /schede/{code} correctly hides archived schede from unauthenticated clients (returns 404, not 403 — good, prevents enumeration).",
+    "server.py PUT /schede/{code}/archive correctly clears archived_at when un-archiving.",
+    "archive.tsx cards look good — Ripristina/Elimina hit-targets are 44+ pt (paddingVertical:12 + text/icon).",
+    "host/index.tsx `load()` swallows the auto-archive error with `try{}catch{}`, so a failing auto-archive never blocks the dashboard — correct fire-and-forget pattern.",
+    "Minor DRY: the `libraryTile` style is reused 3× (Libreria / Riscaldamento / Archivio) with hard-coded marginTop:-2 overrides. Consider extracting a <ListTile /> component."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_auto_archive.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15)",
+    "frontend": "100% (populated + empty archive flows verified on mobile viewport 375x812)"
+  },
+  "seed_data_creation": "Backend tests: 4 schede seeded via pymongo inside a module fixture (TEST_AA_OldNoCI, TEST_AA_OldStaleCI, TEST_AA_FreshCI, TEST_AA_Legacy) plus 2 checkins, all cleaned up in teardown. Frontend UI test: 1 archived scheda seeded (code TUI001) via a bash step, deleted immediately after the populated-state check. Grep confirms zero TEST_AA_* / TUI* documents remain in the DB after the run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "test_auto_archive.py is fully self-contained (seeds + cleanup via pymongo, reads MONGO_URL/DB_NAME from /app/backend/.env). Safe to rerun alongside backend_test.py — code prefixes are disjoint (TAA vs TEST_). If a future iteration adds a dedicated archive-only client route or a scheduled cron, retest the auto-archive endpoint after re-seeding old docs. The one dev-web red-screen overlay observed (401 on /host/archive when token cleared) is expected axios behavior and NOT a bug on native builds.",
+  "rca_of_issue": "N/A — no bugs found. Feature is production-ready."
+}

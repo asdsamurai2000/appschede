@@ -68,6 +68,8 @@ export default function HostArchive() {
     try {
       const r = await api.get<Scheda[]>("/schede", { params: { archived: "true" } });
       setItems(r.data);
+    } catch {
+      // silenzioso: se il token è scaduto l'interceptor gestisce il redirect
     } finally {
       setLoading(false);
       setRefreshing(false);
